@@ -1,0 +1,11 @@
+allowBuilds:
+  sharp: true
+  unrs-resolver: true
+
+onlyBuiltDependencies:
+  - sharp
+  - unrs-resolver
+
+overrides:
+  brace-expansion@5.0.8: 5.0.7
+  electron-to-chromium@1.5.396: 1.5.395
