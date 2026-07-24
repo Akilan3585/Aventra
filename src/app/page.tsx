@@ -1,5 +1,7 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import { LandingPage } from "@/components/marketing/landing-page";
 
 export default function HomePage() {
-  redirect("/dashboard");
+  return <LandingPage />;
 }
