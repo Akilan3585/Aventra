@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { Bell, ChevronDown, Menu, Search, Sparkles, X } from "lucide-react";
+import { UserButton } from "@clerk/nextjs";
+import { Bell, LogIn, Menu, Search, Sparkles, X } from "lucide-react";
 
 import { navigationItems } from "@/config/navigation";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,10 @@ type AppShellProps = { children: ReactNode };
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  const clerkConfigured = Boolean(
+    clerkPublishableKey && !clerkPublishableKey.includes("REPLACE_ME"),
+  );
 
   return (
     <div className="min-h-screen bg-[#f7f9fc]">
@@ -37,7 +42,7 @@ export function AppShell({ children }: AppShellProps) {
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200/80 bg-white/85 px-4 backdrop-blur sm:px-6 lg:px-8">
           <button aria-label="Open navigation" className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden" onClick={() => setIsMenuOpen(true)} type="button"><Menu className="size-5" /></button>
           <div className="hidden max-w-md flex-1 items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-400 md:flex"><Search className="size-4" /><span>Search people, rooms, schedules…</span></div>
-          <div className="ml-auto flex items-center gap-2"><button aria-label="Notifications" className="relative rounded-xl p-2.5 text-slate-500 hover:bg-slate-100" type="button"><Bell className="size-5" /><span className="absolute right-2 top-2 size-1.5 rounded-full bg-blue-600" /></button><button className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-slate-100" type="button"><span className="grid size-8 place-items-center rounded-lg bg-amber-100 text-xs font-bold text-amber-700">AD</span><span className="hidden text-left sm:block"><span className="block text-xs font-semibold text-slate-800">Campus admin</span><span className="block text-[11px] text-slate-500">Administrator</span></span><ChevronDown className="hidden size-4 text-slate-400 sm:block" /></button></div>
+          <div className="ml-auto flex items-center gap-2"><button aria-label="Notifications" className="relative rounded-xl p-2.5 text-slate-500 hover:bg-slate-100" type="button"><Bell className="size-5" /><span className="absolute right-2 top-2 size-1.5 rounded-full bg-blue-600" /></button>{clerkConfigured ? <UserButton showName userProfileMode="modal" /> : <Link className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100" href="/sign-in"><LogIn className="size-4" /><span className="hidden sm:inline">Connect account</span></Link>}</div>
         </header>
         <main className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
       </div>

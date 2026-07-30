@@ -1,31 +1,25 @@
 import Link from "next/link";
-import { ArrowRight, Bot, Building2, CheckCircle2, GraduationCap, ShieldCheck, Wrench } from "lucide-react";
+import { Activity, AlertTriangle, ArrowRight, Bot, Building2, CalendarDays, GraduationCap, Wrench } from "lucide-react";
 
-import { MetricCard } from "@/design-system/patterns/metric-card";
+import { OperationsHeader, OperationsMetrics, StatusPill, WorkspaceBanner } from "@/components/operations/operations-ui";
+import { Card } from "@/design-system/primitives/card";
+import { loadCampusDashboard } from "@/features/operations/infrastructure/campus-operations.repository";
+import { resolveWorkspaceAccess } from "@/server/workspace/workspace-access";
 
-const metrics = [
-  { icon: GraduationCap, label: "Student workspace", value: "Ready", supportingText: "Typed student data service is in place." },
-  { icon: Building2, label: "Facilities workspace", value: "Ready", supportingText: "Rooms, equipment, and schedules are modeled." },
-  { icon: Wrench, label: "Operational data", value: "Secure", supportingText: "Campus records have an RLS security baseline." },
-  { icon: Bot, label: "Agent runtime", value: "Queued", supportingText: "Auditable agent records are ready for controlled runs." },
-] as const;
+export const dynamic = "force-dynamic";
 
-const checklist = [
-  ["Add Clerk keys and enable role-based access", "In progress", "/settings"],
-  ["Define Supabase RLS policies for campus roles", "Next", "/settings"],
-  ["Import students, rooms, and course offerings", "Next", "/students"],
-  ["Connect an AI provider and enable review queues", "Planned", "/analytics"],
-] as const;
-
-export default function DashboardPage() {
-  return (
-    <section aria-labelledby="dashboard-heading">
-      <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><p className="text-sm font-semibold text-primary">Good morning, administrator</p><h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl" id="dashboard-heading">Your campus, in focus.</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">A reliable command center for academic operations, facilities, and AI-assisted decisions.</p></div><Link className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700" href="/settings">Configure workspace <ArrowRight className="size-4" /></Link></div>
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{metrics.map((metric) => <MetricCard key={metric.label} {...metric} />)}</div>
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_.8fr]">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-labelledby="launch-heading"><div className="flex items-center justify-between gap-4"><div><p className="text-sm font-semibold text-slate-950" id="launch-heading">Launch checklist</p><p className="mt-1 text-sm text-slate-500">Complete these steps to activate live campus operations.</p></div><span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">Foundation</span></div><div className="mt-6 space-y-3">{checklist.map(([label, status, href], index) => <Link className="group flex items-center gap-4 rounded-xl border border-slate-100 p-3 transition hover:border-blue-100 hover:bg-blue-50/40" href={href} key={label}><span className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-500">{index + 1}</span><span className="min-w-0 flex-1 text-sm font-medium text-slate-700">{label}</span><span className="text-xs font-semibold text-slate-400 group-hover:text-primary">{status}</span></Link>)}</div></section>
-        <section className="rounded-2xl bg-slate-950 p-5 text-white shadow-xl shadow-slate-300 sm:p-6" aria-labelledby="copilot-heading"><div className="flex size-10 items-center justify-center rounded-xl bg-white/10"><Bot className="size-5 text-blue-300" /></div><p className="mt-5 text-sm font-semibold" id="copilot-heading">Aventra Copilot</p><p className="mt-2 text-sm leading-6 text-slate-300">Your agent layer will recommend actions, log every decision, and keep people in control of high-impact changes.</p><div className="mt-6 space-y-3 border-t border-white/10 pt-5 text-sm"><p className="flex items-center gap-2"><ShieldCheck className="size-4 text-emerald-300" />Human review stays in the loop</p><p className="flex items-center gap-2"><CheckCircle2 className="size-4 text-emerald-300" />Every run is auditable</p></div><Link className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-blue-300 hover:text-white" href="/analytics">Explore agent workspace <ArrowRight className="size-4" /></Link></section>
-      </div>
-    </section>
-  );
+export default async function DashboardPage() {
+  const access = await resolveWorkspaceAccess("reports:read");
+  let dashboard = null;
+  if (access.mode === "live") { try { dashboard = await loadCampusDashboard(); } catch { dashboard = null; } }
+  const mode = access.mode === "live" && !dashboard ? "error" : access.mode;
+  const data = dashboard ?? { activeAgentRuns: 0, attendanceRate: null, attentionRooms: 0, openTickets: 0, scheduleConflicts: 0, students: 0, todaySessions: 0 };
+  const alerts = [
+    { href: "/schedules", label: "Schedule constraints", value: data.scheduleConflicts, tone: data.scheduleConflicts ? "critical" as const : "good" as const },
+    { href: "/classrooms", label: "Rooms needing attention", value: data.attentionRooms, tone: data.attentionRooms ? "warning" as const : "good" as const },
+    { href: "/maintenance", label: "Open maintenance tickets", value: data.openTickets, tone: data.openTickets ? "warning" as const : "good" as const },
+  ];
+  return <section><OperationsHeader actions={<Link className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-200" href="/analytics">Open analytics <ArrowRight className="size-4" /></Link>} description="A live operating picture across student success, teaching spaces, schedules, maintenance, and agent activity." eyebrow="Campus operations" title="Your campus, in focus." /><WorkspaceBanner mode={mode} /><OperationsMetrics metrics={[{ detail: "Verified roster records", icon: GraduationCap, label: "Students", value: data.students }, { detail: "Participation across recorded sessions", icon: Activity, label: "Attendance", value: data.attendanceRate === null ? "—" : `${data.attendanceRate}%` }, { detail: "Teaching sessions on today’s timetable", icon: CalendarDays, label: "Today’s sessions", value: data.todaySessions }, { detail: "Queued or running orchestrations", icon: Bot, label: "Active agent runs", value: data.activeAgentRuns }]} />
+    <div className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_.85fr]"><Card className="p-5 sm:p-6"><div className="flex items-center justify-between"><div><h2 className="font-semibold text-slate-950">Operational exceptions</h2><p className="mt-1 text-sm text-slate-500">Items that require a human decision.</p></div><AlertTriangle className="size-5 text-amber-500" /></div><div className="mt-5 space-y-3">{alerts.map((alert) => <Link className="flex items-center justify-between rounded-xl border border-slate-100 p-4 transition hover:border-blue-100 hover:bg-blue-50/40" href={alert.href} key={alert.label}><span className="text-sm font-medium text-slate-700">{alert.label}</span><StatusPill tone={alert.tone}>{alert.value ? alert.value : "clear"}</StatusPill></Link>)}</div></Card><Card className="bg-slate-950 p-5 text-white sm:p-6"><span className="grid size-10 place-items-center rounded-xl bg-white/10"><Bot className="size-5 text-blue-300" /></span><h2 className="mt-5 font-semibold">Coordinator agent chain</h2><p className="mt-2 text-sm leading-6 text-slate-300">Student demand informs room allocation; facility readiness validates the space; conflicts return for reassignment before notifications are queued.</p><div className="mt-5 grid grid-cols-2 gap-3 text-xs"><div className="rounded-xl bg-white/5 p-3"><Building2 className="mb-2 size-4 text-blue-300" />Capacity aware</div><div className="rounded-xl bg-white/5 p-3"><Wrench className="mb-2 size-4 text-emerald-300" />Readiness aware</div></div><Link className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-blue-300" href="/analytics">Review intelligence <ArrowRight className="size-4" /></Link></Card></div>
+  </section>;
 }

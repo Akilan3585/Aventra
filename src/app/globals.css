@@ -42,3 +42,48 @@ body {
   background: oklch(0.82 0.09 255);
   color: var(--foreground);
 }
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes shimmer-sweep {
+  to { transform: translateX(155%); }
+}
+
+.animated-gradient-text {
+  background: linear-gradient(110deg, #145fd7 5%, #7162e8 45%, #145fd7 85%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gradient-shift 5s ease-in-out infinite;
+}
+
+.shimmer-link {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 0 16px 30px -14px rgba(30, 94, 210, 0.55);
+}
+
+.shimmer-link::after {
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: translateX(-160%);
+  animation: shimmer-sweep 3.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animated-gradient-text,
+  .shimmer-link::after { animation: none; }
+}

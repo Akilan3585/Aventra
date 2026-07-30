@@ -739,6 +739,7 @@ export type Database = {
       profiles: {
         Row: {
           campus_role: string
+          clerk_user_id: string | null
           created_at: string
           display_name: string
           email: string
@@ -747,6 +748,7 @@ export type Database = {
         }
         Insert: {
           campus_role: string
+          clerk_user_id?: string | null
           created_at?: string
           display_name: string
           email: string
@@ -755,6 +757,7 @@ export type Database = {
         }
         Update: {
           campus_role?: string
+          clerk_user_id?: string | null
           created_at?: string
           display_name?: string
           email?: string
@@ -1107,4 +1110,3 @@ export const Constants = {
     },
   },
 } as const
-

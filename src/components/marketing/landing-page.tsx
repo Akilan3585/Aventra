@@ -4,6 +4,9 @@ import { ArrowRight, Bot, CalendarDays, CheckCircle2, GraduationCap, ShieldCheck
 import Link from "next/link";
 import type { HTMLAttributes } from "react";
 
+import { AnimatedGradientText } from "@/components/effects/animated-gradient-text";
+import { ShimmerLink } from "@/components/effects/shimmer-link";
+
 const features = [
   { icon: GraduationCap, title: "Student success", text: "Bring attendance, performance, and interventions into one focused workspace." },
   { icon: CalendarDays, title: "Academic flow", text: "Coordinate schedules, courses, faculty, and room capacity without the busywork." },
@@ -26,6 +29,12 @@ function MotionElement({
   whileInView: _whileInView,
   ...props
 }: MotionProps) {
+  void _animate;
+  void _initial;
+  void _transition;
+  void _viewport;
+  void _whileInView;
+
   return <div {...props} />;
 }
 
@@ -50,9 +59,9 @@ export function LandingPage() {
         <div className="absolute left-1/2 top-0 -z-0 size-[42rem] -translate-x-1/2 rounded-full bg-blue-100/70 blur-3xl" />
         <div className="relative z-10 mx-auto max-w-4xl text-center">
           <motion.div animate={{ opacity: 1, y: 0 }} initial={{ opacity: 0, y: 12 }} transition={{ duration: 0.5, ease }} className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm"><Sparkles className="size-3.5" />The intelligent campus operating system</motion.div>
-          <motion.h1 animate={{ opacity: 1, y: 0 }} initial={{ opacity: 0, y: 24 }} transition={{ delay: 0.08, duration: 0.5, ease }} className="mt-6 text-balance text-5xl font-semibold tracking-[-0.055em] text-slate-950 sm:text-6xl lg:text-7xl">Campus operations that feel <span className="text-primary">effortless.</span></motion.h1>
+          <motion.h1 animate={{ opacity: 1, y: 0 }} initial={{ opacity: 0, y: 24 }} transition={{ delay: 0.08, duration: 0.5, ease }} className="mt-6 text-balance text-5xl font-semibold tracking-[-0.055em] text-slate-950 sm:text-6xl lg:text-7xl">Campus operations that feel <AnimatedGradientText>effortless.</AnimatedGradientText></motion.h1>
           <motion.p animate={{ opacity: 1, y: 0 }} initial={{ opacity: 0, y: 18 }} transition={{ delay: 0.16, duration: 0.5, ease }} className="mx-auto mt-6 max-w-2xl text-pretty text-base leading-7 text-slate-600 sm:text-lg">Aventra unifies academic delivery, facilities, and AI-guided operations so your team can act with clarity—not spreadsheets.</motion.p>
-          <motion.div animate={{ opacity: 1, y: 0 }} initial={{ opacity: 0, y: 18 }} transition={{ delay: 0.24, duration: 0.5, ease }} className="mt-8 flex flex-col justify-center gap-3 sm:flex-row"><Link className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-xl shadow-blue-200 transition hover:bg-blue-700" href="/dashboard">Explore the workspace <ArrowRight className="size-4" /></Link><a className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50" href="#platform">See what it solves</a></motion.div>
+          <motion.div animate={{ opacity: 1, y: 0 }} initial={{ opacity: 0, y: 18 }} transition={{ delay: 0.24, duration: 0.5, ease }} className="mt-8 flex flex-col justify-center gap-3 sm:flex-row"><ShimmerLink className="px-5 py-3 text-sm font-semibold" href="/dashboard">Explore the workspace <ArrowRight className="size-4" /></ShimmerLink><a className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50" href="#platform">See what it solves</a></motion.div>
           <p className="mt-4 text-xs text-slate-500">Built for administrators, faculty, facilities teams, and students.</p>
         </div>
         <motion.div animate={{ opacity: 1, y: 0 }} initial={{ opacity: 0, y: 36 }} transition={{ delay: 0.28, duration: 0.6, ease }} className="relative z-10 mx-auto mt-14 max-w-6xl rounded-[2rem] border border-slate-200/80 bg-white p-3 shadow-[0_32px_90px_-30px_rgba(36,77,160,.32)] sm:p-5">
