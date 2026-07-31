@@ -1,5 +1,25 @@
-import { ModuleLanding } from "@/components/module-landing/module-landing";
+import Link from "next/link";
+import { Activity, Building2, Download, GraduationCap, Wrench } from "lucide-react";
 
-export default function ReportsPage() {
-  return <ModuleLanding description="Governed operational and academic report generation and exports." title="Reports" />;
+import { OperationsHeader, OperationsMetrics, WorkspaceBanner } from "@/components/operations/operations-ui";
+import { Card } from "@/design-system/primitives/card";
+import { loadCampusDashboard } from "@/features/operations/infrastructure/campus-operations.repository";
+import { resolveWorkspaceAccess } from "@/server/workspace/workspace-access";
+
+export const dynamic = "force-dynamic";
+
+const reports = [
+  { description: "Student identifiers, departments, admission year, and semester context.", href: "/api/reports/students", icon: GraduationCap, name: "Student registry" },
+  { description: "Verified attendance records with date, status, student, and course context.", href: "/api/reports/attendance", icon: Activity, name: "Attendance ledger" },
+  { description: "Room capacity, kind, building, and readiness source information.", href: "/api/reports/facilities", icon: Building2, name: "Facilities inventory" },
+  { description: "Maintenance queue, priority, status, room, opening, and resolution dates.", href: "/api/reports/maintenance", icon: Wrench, name: "Maintenance register" },
+] as const;
+
+export default async function ReportsPage() {
+  const access = await resolveWorkspaceAccess("reports:read");
+  let dashboard = null;
+  if (access.mode === "live") try { dashboard = await loadCampusDashboard(); } catch { dashboard = null; }
+  const mode = access.mode === "live" && !dashboard ? "error" : access.mode;
+  const data = dashboard ?? { activeAgentRuns: 0, attendanceRate: null, attentionRooms: 0, openTickets: 0, scheduleConflicts: 0, students: 0, todaySessions: 0 };
+  return <section><OperationsHeader description="Generate permission-controlled CSV exports directly from verified campus source data." eyebrow="Governed reporting" title="Reports and exports." /><WorkspaceBanner mode={mode} /><OperationsMetrics metrics={[{ detail: "Verified student records", icon: GraduationCap, label: "Students", value: data.students }, { detail: "Current participation signal", icon: Activity, label: "Attendance", value: data.attendanceRate === null ? "—" : `${data.attendanceRate}%` }, { detail: "Spaces requiring review", icon: Building2, label: "Facility attention", value: data.attentionRooms }, { detail: "Active maintenance workload", icon: Wrench, label: "Open tickets", value: data.openTickets }]} /><div className="mt-6 grid gap-4 md:grid-cols-2">{reports.map(({ description, href, icon: Icon, name }) => <Card className="group p-5 sm:p-6" key={href}><span className="grid size-10 place-items-center rounded-xl bg-blue-50 text-primary"><Icon className="size-5" /></span><h2 className="mt-5 font-semibold text-slate-950">{name}</h2><p className="mt-2 text-sm leading-6 text-slate-500">{description}</p><Link className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary" href={href}>Download CSV <Download className="size-4 transition group-hover:translate-y-0.5" /></Link></Card>)}</div></section>;
 }

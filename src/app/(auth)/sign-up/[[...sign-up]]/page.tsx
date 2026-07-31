@@ -1,7 +1,7 @@
-import { SignUp } from "@clerk/nextjs";
 import { UserPlus } from "lucide-react";
 import Link from "next/link";
 
+import { ClerkAuthForm } from "@/components/auth/clerk-auth-form";
 import { isClerkConfigured } from "@/server/auth/campus-access";
 
 export default function SignUpPage() {
@@ -14,12 +14,7 @@ export default function SignUpPage() {
           <p className="mt-2 text-sm text-slate-500">Campus permissions are assigned separately by an administrator.</p>
         </div>
         {isClerkConfigured() ? (
-          <SignUp
-            fallbackRedirectUrl="/dashboard"
-            path="/sign-up"
-            routing="path"
-            signInUrl="/sign-in"
-          />
+          <ClerkAuthForm mode="sign-up" />
         ) : (
           <div className="rounded-2xl border border-amber-200 bg-white p-6 text-sm leading-6 text-slate-600 shadow-sm">
             Clerk keys are required in <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">.env.local</code> before account creation is enabled.

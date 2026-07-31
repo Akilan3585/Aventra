@@ -1,0 +1,3 @@
+export default function PlatformLoading() {
+  return <div aria-label="Loading workspace" aria-live="polite" className="animate-pulse"><div className="h-3 w-32 rounded bg-slate-200" /><div className="mt-4 h-10 w-full max-w-xl rounded-lg bg-slate-200" /><div className="mt-3 h-4 w-full max-w-2xl rounded bg-slate-100" /><div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{Array.from({ length: 4 }, (_, index) => <div className="h-36 rounded-2xl border border-slate-200 bg-white" key={index} />)}</div><div className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_.8fr]"><div className="h-96 rounded-2xl border border-slate-200 bg-white" /><div className="h-96 rounded-2xl border border-slate-200 bg-white" /></div><span className="sr-only">Loading campus data</span></div>;
+}
