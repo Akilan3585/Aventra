@@ -1,5 +1,72 @@
-import { ModuleLanding } from "@/components/module-landing/module-landing";
+import { redirect } from "next/navigation";
 
-export default function StudentsPage() {
-  return <ModuleLanding description="Student identity, enrollment, and academic profile operations." title="Students" />;
+import { StudentWorkspace } from "@/features/students/presentation/student-workspace";
+import {
+  listDepartments,
+  listStudentDirectory,
+} from "@/features/students/infrastructure/student.repository";
+import { getCampusAccess, isClerkConfigured } from "@/server/auth/campus-access";
+import { hasPermission } from "@/server/auth/permissions";
+import { isSupabaseAdminConfigured } from "@/server/supabase/admin-client";
+
+export const dynamic = "force-dynamic";
+
+async function loadStudentWorkspace() {
+  try {
+    const [students, departments] = await Promise.all([
+      listStudentDirectory(),
+      listDepartments(),
+    ]);
+    return { departments, students };
+  } catch {
+    return null;
+  }
+}
+
+export default async function StudentsPage() {
+  if (!isClerkConfigured() || !isSupabaseAdminConfigured()) {
+    return (
+      <StudentWorkspace
+        canManage={false}
+        departments={[]}
+        mode="configuration"
+        students={[]}
+      />
+    );
+  }
+
+  const access = await getCampusAccess();
+  if (!access) redirect("/sign-in?redirect_url=/students");
+
+  if (!hasPermission(access.role, "students:read")) {
+    return (
+      <StudentWorkspace
+        canManage={false}
+        departments={[]}
+        mode="forbidden"
+        students={[]}
+      />
+    );
+  }
+
+  const workspace = await loadStudentWorkspace();
+  if (!workspace) {
+    return (
+      <StudentWorkspace
+        canManage={false}
+        departments={[]}
+        mode="error"
+        students={[]}
+      />
+    );
+  }
+
+  return (
+    <StudentWorkspace
+      canManage={hasPermission(access.role, "students:manage")}
+      departments={workspace.departments}
+      mode="live"
+      students={workspace.students}
+    />
+  );
 }

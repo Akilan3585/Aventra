@@ -1,5 +1,21 @@
-import { ModuleLanding } from "@/components/module-landing/module-landing";
+import { Boxes, CircleCheck, CircleOff, Wrench } from "lucide-react";
 
-export default function EquipmentPage() {
-  return <ModuleLanding description="Equipment inventory, condition, usage history, and room assignments." title="Equipment" />;
+import { OperationsHeader, OperationsMetrics, StatusPill, WorkspaceBanner } from "@/components/operations/operations-ui";
+import { Card } from "@/design-system/primitives/card";
+import { updateEquipmentStatusAction } from "@/features/administration/application/administration-actions";
+import { loadEquipmentWorkspace } from "@/features/administration/infrastructure/administration.repository";
+import { AdministrationForm } from "@/features/administration/presentation/administration-form";
+import { AdministrationTable } from "@/features/administration/presentation/administration-table";
+import { resolveWorkspaceAccess } from "@/server/workspace/workspace-access";
+
+export const dynamic = "force-dynamic";
+
+export default async function EquipmentPage() {
+  const access = await resolveWorkspaceAccess("reports:read", "campus:manage");
+  let workspace = null;
+  if (access.mode === "live") try { workspace = await loadEquipmentWorkspace(); } catch { workspace = null; }
+  const mode = access.mode === "live" && !workspace ? "error" : access.mode;
+  const data = workspace ?? { equipment: [], rooms: [] };
+  const rooms = data.rooms.map((item) => ({ id: item.id, label: `${item.code} — ${item.name} · ${item.building}` }));
+  return <section><OperationsHeader actions={<AdministrationForm canManage={access.canManage && mode === "live"} kind="equipment" options={{ rooms }} />} description="Track every teaching asset, its assigned room, service history, and operational condition." eyebrow="Facilities administration" title="Equipment inventory." /><WorkspaceBanner mode={mode} /><OperationsMetrics metrics={[{ detail: "Assets under management", icon: Boxes, label: "Inventory", value: data.equipment.length }, { detail: "Available for teaching operations", icon: CircleCheck, label: "Operational", value: data.equipment.filter((item) => item.status === "operational").length }, { detail: "Usable with reduced reliability", icon: Wrench, label: "Degraded", value: data.equipment.filter((item) => item.status === "degraded").length }, { detail: "Unavailable or retired assets", icon: CircleOff, label: "Unavailable", value: data.equipment.filter((item) => ["offline", "retired"].includes(item.status)).length }]} />{access.canManage && data.equipment.length ? <Card className="mt-6 p-5"><p className="text-sm font-semibold text-slate-900">Quick condition update</p><p className="mt-1 text-xs text-slate-500">Condition changes immediately recalculate room readiness and are written to the audit log.</p><form action={updateEquipmentStatusAction} className="mt-4 flex flex-col gap-3 sm:flex-row"><select className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" name="equipmentId" required><option value="">Select asset</option>{data.equipment.map((item) => <option key={item.id} value={item.id}>{item.asset_tag} — {item.name}</option>)}</select><select className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" name="status"><option value="operational">Operational</option><option value="degraded">Degraded</option><option value="offline">Offline</option><option value="retired">Retired</option></select><button className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white" type="submit">Update condition</button></form></Card> : null}<AdministrationTable columns={["Asset", "Room", "Category", "Condition", "Last serviced"]} description="Room ownership and condition are source-of-truth inputs for facility readiness." emptyDescription="Register equipment after classrooms and laboratories are configured." emptyIcon={Boxes} emptyTitle="No equipment registered." rows={data.equipment.map((item) => ({ id: item.id, cells: [<div key="asset"><p className="text-sm font-semibold text-slate-900">{item.name}</p><p className="font-mono text-xs text-slate-500">{item.asset_tag}</p></div>, <span className="text-sm text-slate-700" key="room">{item.rooms.code} · {item.rooms.name}</span>, <span className="text-sm text-slate-700" key="category">{item.category}</span>, <StatusPill key="status" tone={item.status === "operational" ? "good" : item.status === "degraded" ? "warning" : "critical"}>{item.status}</StatusPill>, <span className="font-mono text-xs text-slate-600" key="service">{item.last_serviced_at ?? "Not recorded"}</span>] }))} title="Asset register" /></section>;
 }
