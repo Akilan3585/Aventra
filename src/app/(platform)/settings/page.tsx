@@ -1,23 +1,24 @@
 import { Bell, Bot, Database, Globe2, KeyRound, LockKeyhole, Settings2, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { redirect } from "next/navigation";
 
+import { resolveAiProviderConfiguration } from "@/ai/providers/provider-configuration";
 import { OperationsHeader, OperationsMetrics, SectionHeader, StatusPill } from "@/components/operations/operations-ui";
 import { Card } from "@/design-system/primitives/card";
 import { campusPolicies } from "@/features/operations/domain/operations-rules";
 import { isClerkConfigured } from "@/server/auth/campus-access";
 import { isSupabaseAdminConfigured } from "@/server/supabase/admin-client";
+import { resolveWorkspaceAccess } from "@/server/workspace/workspace-access";
 
 export const dynamic = "force-dynamic";
 
-function isSet(name: string) {
-  const value = process.env[name];
-  return Boolean(value && !value.includes("REPLACE_ME"));
-}
-
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const access = await resolveWorkspaceAccess("campus:manage");
+  if (access.mode !== "live") redirect("/dashboard");
   const clerk = isClerkConfigured();
   const supabase = isSupabaseAdminConfigured();
-  const aiProvider = process.env.AI_PROVIDER ?? "not selected";
-  const aiReady = aiProvider === "openai" ? isSet("OPENAI_API_KEY") : aiProvider === "gemini" ? isSet("GEMINI_API_KEY") : false;
+  const aiConfiguration = resolveAiProviderConfiguration();
+  const aiProvider = aiConfiguration?.provider ?? "not configured";
+  const aiReady = Boolean(aiConfiguration);
   const configured = [clerk, supabase, aiReady].filter(Boolean).length;
   const integrations = [
     { description: "Identity, sessions, and campus role metadata", icon: KeyRound, label: "Clerk authentication", ready: clerk },
@@ -31,7 +32,7 @@ export default function SettingsPage() {
     { description: "Clerk, Supabase, and AI provider connection health.", icon: Database, label: "Integrations", status: `${configured}/3 ready` },
   ];
 
-  return <section>
+  return <section aria-label={access.mode === "live" ? "Administrator settings" : "Restricted settings"}>
     <OperationsHeader description="Review workspace preferences, integration health, security boundaries, and deterministic campus policies." eyebrow="Admin" title="Workspace settings" />
     <OperationsMetrics metrics={[
       { detail: "authentication, database, and AI", icon: Settings2, label: "Integrations ready", value: `${configured}/3` },

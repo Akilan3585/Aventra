@@ -11,12 +11,16 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm lint && pnpm typecheck && pnpm build"
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.36",
+    "@ai-sdk/openai": "^4.0.32",
     "@clerk/nextjs": "7.6.1",
     "@supabase/supabase-js": "^2.110.8",
+    "ai": "^7.0.55",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "12.33.0",
@@ -37,6 +41,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.11",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "4.0.18"
   }
 }

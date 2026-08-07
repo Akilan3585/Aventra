@@ -1,6 +1,12 @@
 import "server-only";
 
+import { Output, stepCountIs, ToolLoopAgent } from "ai";
+import { z } from "zod";
+
 import type { AgentResult } from "@/ai/contracts/agent-result";
+import { resolveAiProviderConfiguration } from "@/ai/providers/provider-configuration";
+import { createCampusLanguageModel } from "@/ai/providers/provider";
+import { createCampusAgentTools } from "@/ai/tools/campus-tools";
 import { loadPerformanceWorkspace, resolveActorProfileId } from "@/features/administration/infrastructure/administration.repository";
 import { loadAttendanceWorkspace, loadClassroomWorkspace, loadMaintenanceWorkspace, loadScheduleWorkspace } from "@/features/operations/infrastructure/campus-operations.repository";
 import { createSupabaseAdminClient } from "@/server/supabase/admin-client";
@@ -9,6 +15,20 @@ import type { Json } from "@/types/database";
 export const campusAgentNames = ["coordinator", "student-success", "classroom", "maintenance"] as const;
 export type CampusAgentName = (typeof campusAgentNames)[number];
 type CampusDecision = { action: "monitor" | "review"; agent: CampusAgentName; summary: string };
+
+const recommendationSchema = z.object({
+  confidence: z.number().min(0).max(1),
+  nextActions: z.array(z.string().min(1).max(240)).min(1).max(4),
+  reasons: z.array(z.string().min(1).max(240)).min(1).max(4),
+  summary: z.string().min(1).max(320),
+});
+
+const activeToolsByAgent = {
+  classroom: ["classroomSignals", "scheduleSignals"],
+  coordinator: ["attendanceSignals", "performanceSignals", "classroomSignals", "scheduleSignals", "maintenanceSignals"],
+  maintenance: ["maintenanceSignals"],
+  "student-success": ["attendanceSignals", "performanceSignals"],
+} as const;
 
 function asJson(value: unknown) { return value as Json; }
 
@@ -39,6 +59,84 @@ export async function executeCampusAgent({ agentName, focus, userId }: { agentNa
 }
 
 async function buildDecision(agentName: CampusAgentName, focus: string): Promise<AgentResult<CampusDecision>> {
+  const deterministic = await buildDeterministicDecision(agentName, focus);
+  const configuration = resolveAiProviderConfiguration();
+
+  if (!configuration) {
+    return {
+      ...deterministic,
+      execution: { mode: "deterministic-fallback", model: null, provider: null, tools: [] },
+    };
+  }
+
+  const toolCalls: string[] = [];
+  const tools = createCampusAgentTools((toolName) => toolCalls.push(toolName));
+  const activeTools = [...activeToolsByAgent[agentName]];
+
+  try {
+    const agent = new ToolLoopAgent({
+      activeTools,
+      instructions: [
+        "You are a governed smart-campus decision-support specialist.",
+        "Call every available evidence tool before producing an answer.",
+        "Use only tool evidence and the deterministic policy result supplied by the application.",
+        "Never invent students, rooms, incidents, counts, policies, or privileged actions.",
+        "The deterministic action and human-review requirement are binding and cannot be changed.",
+        "Return concise reasons and safe next actions for an authorized campus operator.",
+      ].join(" "),
+      model: createCampusLanguageModel(configuration),
+      output: Output.object({ schema: recommendationSchema }),
+      prepareStep: ({ steps }) => {
+        const requiredTool = activeTools[steps.length];
+        return requiredTool
+          ? { activeTools: [requiredTool], toolChoice: { toolName: requiredTool, type: "tool" } }
+          : { activeTools, toolChoice: "auto" };
+      },
+      stopWhen: stepCountIs(activeTools.length + 2),
+      tools,
+    });
+
+    const response = await agent.generate({
+      prompt: [
+        `Specialist: ${agentName}.`,
+        `Operator focus: ${focus || "No additional focus supplied"}.`,
+        `Binding deterministic action: ${deterministic.decision.action}.`,
+        `Binding human review: ${deterministic.requiresHumanReview}.`,
+        `Verified baseline evidence: ${JSON.stringify(deterministic.evidence)}.`,
+        `You must call these tools before answering: ${activeTools.join(", ")}.`,
+      ].join("\n"),
+    });
+
+    const missingTools = activeTools.filter((toolName) => !toolCalls.includes(toolName));
+    if (missingTools.length > 0) throw new Error(`AGENT_EVIDENCE_INCOMPLETE:${missingTools.join(",")}`);
+
+    return {
+      ...deterministic,
+      confidence: Math.min(deterministic.confidence, response.output.confidence),
+      decision: { ...deterministic.decision, summary: response.output.summary },
+      execution: {
+        mode: "provider",
+        model: configuration.model,
+        provider: configuration.provider,
+        tools: [...new Set(toolCalls)],
+      },
+      nextActions: response.output.nextActions,
+      reasons: response.output.reasons,
+    };
+  } catch {
+    return {
+      ...deterministic,
+      execution: {
+        mode: "deterministic-fallback",
+        model: configuration.model,
+        provider: configuration.provider,
+        tools: [...new Set(toolCalls)],
+      },
+    };
+  }
+}
+
+async function buildDeterministicDecision(agentName: CampusAgentName, focus: string): Promise<AgentResult<CampusDecision>> {
   if (agentName === "student-success") {
     const [attendance, performance] = await Promise.all([loadAttendanceWorkspace(), loadPerformanceWorkspace()]);
     const lowGpa = performance.results.filter((item) => Number(item.gpa) < 6).length;

@@ -1,14 +1,19 @@
-export type AiProviderName = "gemini" | "openai";
+import "server-only";
 
-export type AiProviderConfiguration = {
-  model: string;
-  provider: AiProviderName;
-};
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createOpenAI } from "@ai-sdk/openai";
+import type { LanguageModel } from "ai";
 
-export function parseAiProvider(value: string | undefined): AiProviderName {
-  if (value === "gemini" || value === "openai") {
-    return value;
+import type { AiProviderConfiguration } from "@/ai/providers/provider-configuration";
+
+export { resolveAiProviderConfiguration } from "@/ai/providers/provider-configuration";
+
+export function createCampusLanguageModel(configuration: AiProviderConfiguration): LanguageModel {
+  if (configuration.provider === "gemini") {
+    const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
+    return google(configuration.model);
   }
 
-  return "openai";
+  const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return openai(configuration.model);
 }

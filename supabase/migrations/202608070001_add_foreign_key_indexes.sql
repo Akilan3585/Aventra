@@ -1,0 +1,21 @@
+-- Index foreign-key columns used by joins, deletes, and operational filters.
+create index if not exists agent_decisions_approved_by_profile_id_idx on public.agent_decisions (approved_by_profile_id);
+create index if not exists agent_decisions_run_id_idx on public.agent_decisions (run_id);
+create index if not exists agent_messages_run_id_idx on public.agent_messages (run_id);
+create index if not exists agent_runs_requested_by_profile_id_idx on public.agent_runs (requested_by_profile_id);
+create index if not exists assignment_submissions_enrollment_id_idx on public.assignment_submissions (enrollment_id);
+create index if not exists assignment_submissions_graded_by_profile_id_idx on public.assignment_submissions (graded_by_profile_id);
+create index if not exists assignments_offering_id_idx on public.assignments (offering_id);
+create index if not exists attendance_records_recorded_by_profile_id_idx on public.attendance_records (recorded_by_profile_id);
+create index if not exists course_offerings_faculty_id_idx on public.course_offerings (faculty_id);
+create index if not exists courses_department_id_idx on public.courses (department_id);
+create index if not exists enrollments_offering_id_idx on public.enrollments (offering_id);
+create index if not exists equipment_room_id_idx on public.equipment (room_id);
+create index if not exists faculty_members_department_id_idx on public.faculty_members (department_id);
+create index if not exists internal_marks_recorded_by_profile_id_idx on public.internal_marks (recorded_by_profile_id);
+create index if not exists maintenance_tickets_assigned_to_profile_id_idx on public.maintenance_tickets (assigned_to_profile_id);
+create index if not exists maintenance_tickets_equipment_id_idx on public.maintenance_tickets (equipment_id);
+create index if not exists maintenance_tickets_reported_by_profile_id_idx on public.maintenance_tickets (reported_by_profile_id);
+create index if not exists maintenance_tickets_room_id_idx on public.maintenance_tickets (room_id);
+create index if not exists schedules_created_by_profile_id_idx on public.schedules (created_by_profile_id);
+create index if not exists students_department_id_idx on public.students (department_id);

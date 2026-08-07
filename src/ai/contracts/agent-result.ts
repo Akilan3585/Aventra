@@ -11,4 +11,10 @@ export type AgentResult<TDecision> = {
   reasons: string[];
   nextActions: string[];
   requiresHumanReview: boolean;
+  execution?: {
+    mode: "provider" | "deterministic-fallback";
+    model: string | null;
+    provider: "gemini" | "openai" | null;
+    tools: string[];
+  };
 };
