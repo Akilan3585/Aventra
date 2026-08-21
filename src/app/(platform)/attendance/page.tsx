@@ -13,7 +13,7 @@ export default async function AttendancePage() {
   const access = await resolveWorkspaceAccess("students:read", "attendance:record");
   let workspace = null;
   if (access.mode === "live") {
-    try { workspace = await loadAttendanceWorkspace(); } catch { workspace = null; }
+    try { workspace = await loadAttendanceWorkspace(access.role === "faculty" ? access.profileId ?? undefined : undefined); } catch { workspace = null; }
   }
   const mode = access.mode === "live" && !workspace ? "error" : access.mode;
   const data = workspace ?? { absent: 0, attendanceRate: null, enrollmentOptions: [], late: 0, records: [], todayRecorded: 0 };

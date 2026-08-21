@@ -19,7 +19,7 @@ export async function listAgentRuns(): Promise<AgentRun[]> {
 
 export async function loadAgentWorkspace() {
   const client = createSupabaseAdminClient();
-  const { data, error } = await client.from("agent_runs").select("id, agent_name, status, input, output, error_message, correlation_id, created_at, started_at, completed_at, agent_decisions (confidence, decision_type, reasons, recommendations, requires_human_review)").order("created_at", { ascending: false }).limit(100);
+  const { data, error } = await client.from("agent_runs").select("id, agent_name, status, input, output, error_message, correlation_id, created_at, started_at, completed_at, agent_decisions (id, confidence, decision_type, reasons, recommendations, requires_human_review, approved_at, approved_by_profile_id)").order("created_at", { ascending: false }).limit(100);
   if (error) throw new DatabaseQueryError("load agent workspace", error.message);
   return data;
 }

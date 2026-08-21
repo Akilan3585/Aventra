@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { Activity, AlertTriangle, ArrowRight, Bot, Building2, CalendarDays, GraduationCap, Sparkles, Wrench } from "lucide-react";
+import { redirect } from "next/navigation";
 
 import { OperationsHeader, OperationsMetrics, ProgressBar, SectionHeader, StatusPill, WorkspaceBanner } from "@/components/operations/operations-ui";
 import { Card } from "@/design-system/primitives/card";
 import { campusPolicies } from "@/features/operations/domain/operations-rules";
 import { loadCampusDashboard } from "@/features/operations/infrastructure/campus-operations.repository";
+import { getCampusAccess } from "@/server/auth/campus-access";
+import { isSupabaseAdminConfigured } from "@/server/supabase/admin-client";
 import { resolveWorkspaceAccess } from "@/server/workspace/workspace-access";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +20,12 @@ const quickActions = [
 ];
 
 export default async function DashboardPage() {
+  if (isSupabaseAdminConfigured()) {
+    const identity = await getCampusAccess();
+    if (identity?.role === "student") redirect("/student-workspace");
+    if (identity?.role === "faculty") redirect("/faculty-workspace");
+    if (identity?.role === "maintenance-staff") redirect("/maintenance");
+  }
   const access = await resolveWorkspaceAccess("reports:read");
   let dashboard = null;
   if (access.mode === "live") { try { dashboard = await loadCampusDashboard(); } catch { dashboard = null; } }

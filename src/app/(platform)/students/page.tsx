@@ -11,10 +11,10 @@ import { isSupabaseAdminConfigured } from "@/server/supabase/admin-client";
 
 export const dynamic = "force-dynamic";
 
-async function loadStudentWorkspace() {
+async function loadStudentWorkspace(facultyProfileId?: string) {
   try {
     const [students, departments] = await Promise.all([
-      listStudentDirectory(),
+      listStudentDirectory(facultyProfileId),
       listDepartments(),
     ]);
     return { departments, students };
@@ -49,7 +49,9 @@ export default async function StudentsPage() {
     );
   }
 
-  const workspace = await loadStudentWorkspace();
+  const workspace = await loadStudentWorkspace(
+    access.role === "faculty" ? access.profileId ?? undefined : undefined,
+  );
   if (!workspace) {
     return (
       <StudentWorkspace

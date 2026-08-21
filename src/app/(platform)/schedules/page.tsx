@@ -12,7 +12,7 @@ const formatTime = (value: string) => new Intl.DateTimeFormat("en-IN", { dateSty
 export default async function SchedulesPage() {
   const access = await resolveWorkspaceAccess("reports:read", "schedules:manage");
   let workspace = null;
-  if (access.mode === "live") { try { workspace = await loadScheduleWorkspace(); } catch { workspace = null; } }
+  if (access.mode === "live") { try { workspace = await loadScheduleWorkspace(access.role === "faculty" ? access.profileId ?? undefined : undefined); } catch { workspace = null; } }
   const mode = access.mode === "live" && !workspace ? "error" : access.mode;
   const data = workspace ?? { conflicts: 0, offeringOptions: [], roomOptions: [], schedules: [], todaySessions: 0, utilizationPercent: 0 };
   return <section><OperationsHeader actions={<ScheduleCreator canManage={access.canManage && mode === "live"} offerings={data.offeringOptions} rooms={data.roomOptions} />} description="Coordinate course demand, faculty delivery, room capacity, and timetable constraints from one operational queue." eyebrow="Timetable intelligence" title="Schedules without collisions." /><WorkspaceBanner mode={mode} /><OperationsMetrics metrics={[{ detail: "Sessions scheduled for today", icon: CalendarDays, label: "Today’s sessions", value: data.todaySessions }, { detail: "Room overlaps or capacity mismatches", icon: AlertTriangle, label: "Constraint alerts", value: data.conflicts }, { detail: "Allocated seats against room capacity", icon: Gauge, label: "Seat utilization", value: `${data.utilizationPercent}%` }, { detail: "Active schedule records", icon: School, label: "Total sessions", value: data.schedules.length }]} />

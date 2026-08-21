@@ -2,6 +2,7 @@ import "server-only";
 
 import { DatabaseQueryError } from "@/server/database/database-query-error";
 import { createSupabaseAdminClient } from "@/server/supabase/admin-client";
+import { facultyOfferingIds } from "@/server/auth/academic-scope";
 
 function assertQuery(error: { message: string } | null, operation: string) {
   if (error) throw new DatabaseQueryError(operation, error.message);
@@ -32,25 +33,36 @@ export async function loadDepartmentsWorkspace() {
   }));
 }
 
-export async function loadCoursesWorkspace() {
+export async function loadCoursesWorkspace(facultyProfileId?: string) {
   const client = createSupabaseAdminClient();
+  const scopedOfferingIds = facultyProfileId ? await facultyOfferingIds(facultyProfileId) : null;
+  if (scopedOfferingIds && !scopedOfferingIds.length) return { courses: [], departments: [], offerings: [], faculty: [] };
+  let offeringsQuery = client.from("course_offerings").select("id, course_id, faculty_id, academic_year, term, section, capacity");
+  if (scopedOfferingIds) offeringsQuery = offeringsQuery.in("id", scopedOfferingIds);
   const [courses, departments, offerings, faculty] = await Promise.all([
     client.from("courses").select("id, code, title, credit_hours, department_id, departments (code, name)").order("code"),
     client.from("departments").select("id, code, name").order("code"),
-    client.from("course_offerings").select("id, course_id, faculty_id, academic_year, term, section, capacity").order("academic_year", { ascending: false }),
+    offeringsQuery.order("academic_year", { ascending: false }),
     client.from("faculty_members").select("id, employee_number, designation, profiles (display_name)").order("employee_number"),
   ]);
   assertQuery(courses.error, "load courses");
   assertQuery(departments.error, "load course departments");
   assertQuery(offerings.error, "load course offerings");
   assertQuery(faculty.error, "load offering faculty");
-  return { courses: courses.data ?? [], departments: departments.data ?? [], offerings: offerings.data ?? [], faculty: faculty.data ?? [] };
+  const offeringRows = offerings.data ?? [];
+  const courseIds = new Set(offeringRows.map((item) => item.course_id));
+  return {
+    courses: scopedOfferingIds ? (courses.data ?? []).filter((course) => courseIds.has(course.id)) : courses.data ?? [],
+    departments: departments.data ?? [],
+    offerings: offeringRows,
+    faculty: faculty.data ?? [],
+  };
 }
 
 export async function loadFacultyWorkspace() {
   const client = createSupabaseAdminClient();
   const [members, departments, offerings] = await Promise.all([
-    client.from("faculty_members").select("id, employee_number, designation, department_id, profiles (display_name, email), departments (code, name)").order("employee_number"),
+    client.from("faculty_members").select("id, employee_number, designation, department_id, profiles (clerk_user_id, display_name, email, membership_status), departments (code, name)").order("employee_number"),
     client.from("departments").select("id, code, name").order("code"),
     client.from("course_offerings").select("faculty_id"),
   ]);
@@ -112,6 +124,19 @@ export async function loadProfileWorkspace(clerkUserId: string) {
   const { data, error } = await client.from("profiles").select("id, clerk_user_id, display_name, email, campus_role, created_at, updated_at").eq("clerk_user_id", clerkUserId).maybeSingle();
   assertQuery(error, "load campus profile");
   return data;
+}
+
+export async function loadCampusMemberships() {
+  const client = createSupabaseAdminClient();
+  const { data, error } = await client
+    .from("profiles")
+    .select(
+      "id, clerk_user_id, display_name, email, campus_role, membership_status, valid_from, valid_until, approved_at, updated_at",
+    )
+    .order("membership_status")
+    .order("updated_at", { ascending: false });
+  assertQuery(error, "load campus memberships");
+  return data ?? [];
 }
 
 export async function resolveActorProfileId(clerkUserId: string) {

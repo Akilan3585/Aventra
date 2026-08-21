@@ -1,0 +1,293 @@
+name: Deploy AWS Lambda
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: aws-lambda-production
+  cancel-in-progress: false
+
+env:
+  DEPLOY_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+  ECR_REPOSITORY: ${{ vars.AWS_ECR_REPOSITORY }}
+  LAMBDA_FUNCTION_NAME: ${{ vars.AWS_LAMBDA_FUNCTION_NAME }}
+  LAMBDA_ALIAS: ${{ vars.AWS_LAMBDA_ALIAS || 'production' }}
+  SMOKE_TEST_URL: ${{ vars.AWS_SMOKE_TEST_URL }}
+
+jobs:
+  deploy:
+    name: Build, publish, and deploy
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: production
+      url: ${{ vars.NEXT_PUBLIC_APP_URL }}
+
+    steps:
+      - name: Validate deployment configuration
+        shell: bash
+        env:
+          AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          set -euo pipefail
+          required=(
+            AWS_REGION
+            AWS_ACCOUNT_ID
+            AWS_DEPLOY_ROLE_ARN
+            ECR_REPOSITORY
+            LAMBDA_FUNCTION_NAME
+            NEXT_PUBLIC_APP_URL
+            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+            NEXT_PUBLIC_SUPABASE_URL
+            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+          )
+          for variable in "${required[@]}"; do
+            if [[ -z "${!variable:-}" ]]; then
+              echo "::error::Missing required GitHub Actions variable: ${variable}"
+              exit 1
+            fi
+          done
+
+      - name: Check out deployment commit
+        uses: actions/checkout@v7.0.0
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+
+      - name: Configure AWS credentials through OIDC
+        uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: AventraAI-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: ${{ env.AWS_ACCOUNT_ID }}
+
+      - name: Sign in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2.1.6
+
+      - name: Set up QEMU for ARM64
+        uses: docker/setup-qemu-action@v4.2.0
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4.1.0
+
+      - name: Create immutable image tag
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "image_tag=${DEPLOY_SHA:0:12}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
+
+      - name: Build single-platform Lambda image
+        id: image
+        uses: docker/build-push-action@v7.2.0
+        env:
+          # Lambda accepts a single-architecture image manifest, not the OCI
+          # image index Buildx creates when it publishes attestations.
+          BUILDX_NO_DEFAULT_ATTESTATIONS: 1
+        with:
+          context: .
+          target: runtime
+          platforms: linux/arm64
+          load: true
+          push: false
+          provenance: false
+          sbom: false
+          tags: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.release.outputs.image_tag }}
+          labels: |
+            org.opencontainers.image.revision=${{ env.DEPLOY_SHA }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          build-args: |
+            NEXT_PUBLIC_APP_URL=${{ vars.NEXT_PUBLIC_APP_URL }}
+            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ vars.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+            NEXT_PUBLIC_CLERK_SIGN_IN_URL=${{ vars.NEXT_PUBLIC_CLERK_SIGN_IN_URL || '/sign-in' }}
+            NEXT_PUBLIC_CLERK_SIGN_UP_URL=${{ vars.NEXT_PUBLIC_CLERK_SIGN_UP_URL || '/sign-up' }}
+            NEXT_PUBLIC_SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          cache-from: type=gha,scope=aventra-ai-lambda
+          cache-to: type=gha,mode=max,scope=aventra-ai-lambda
+
+      - name: Push and validate Lambda-compatible image manifest
+        id: published-image
+        shell: bash
+        env:
+          IMAGE_TAG_URI: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.release.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+
+          docker push "$IMAGE_TAG_URI"
+
+          image=$(aws ecr batch-get-image \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=${{ steps.release.outputs.image_tag }}" \
+            --accepted-media-types \
+              application/vnd.docker.distribution.manifest.v2+json \
+              application/vnd.oci.image.manifest.v1+json \
+            --output json)
+
+          digest=$(jq -r '.images[0].imageId.imageDigest // empty' <<< "$image")
+          manifest=$(jq -r '.images[0].imageManifest // empty' <<< "$image")
+
+          if [[ -z "$digest" || -z "$manifest" ]]; then
+            echo "::error::ECR did not return a Lambda-compatible single-image manifest"
+            jq -c '{failures}' <<< "$image"
+            exit 1
+          fi
+
+          manifest_media_type=$(jq -r '.mediaType // empty' <<< "$manifest")
+          case "$manifest_media_type" in
+            application/vnd.docker.distribution.manifest.v2+json|application/vnd.oci.image.manifest.v1+json)
+              ;;
+            *)
+              echo "::error::Unsupported Lambda manifest media type: ${manifest_media_type:-missing}"
+              exit 1
+              ;;
+          esac
+
+          config_media_type=$(jq -r '.config.mediaType // empty' <<< "$manifest")
+          case "$config_media_type" in
+            application/vnd.docker.container.image.v1+json|application/vnd.oci.image.config.v1+json)
+              ;;
+            *)
+              echo "::error::Unsupported Lambda config media type: ${config_media_type:-missing}"
+              exit 1
+              ;;
+          esac
+
+          unsupported_layer_media_types=$(jq -r '
+            [
+              .layers[].mediaType
+              | select(
+                  . != "application/vnd.docker.image.rootfs.diff.tar.gzip"
+                  and . != "application/vnd.oci.image.layer.v1.tar+gzip"
+                )
+            ]
+            | unique
+            | join(",")
+          ' <<< "$manifest")
+
+          if [[ -n "$unsupported_layer_media_types" ]]; then
+            echo "::error::Unsupported Lambda layer media type(s): $unsupported_layer_media_types"
+            exit 1
+          fi
+
+          image_uri="${IMAGE_TAG_URI%:*}@${digest}"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "image_uri=$image_uri" >> "$GITHUB_OUTPUT"
+          echo "manifest_media_type=$manifest_media_type" >> "$GITHUB_OUTPUT"
+          echo "config_media_type=$config_media_type" >> "$GITHUB_OUTPUT"
+          echo "layer_media_types=$(jq -r '[.layers[].mediaType] | unique | join(",")' <<< "$manifest")" >> "$GITHUB_OUTPUT"
+
+      - name: Read current production alias
+        id: previous
+        shell: bash
+        run: |
+          set -euo pipefail
+          if version=$(aws lambda get-alias \
+            --function-name "$LAMBDA_FUNCTION_NAME" \
+            --name "$LAMBDA_ALIAS" \
+            --query FunctionVersion \
+            --output text 2>/dev/null); then
+            echo "version=$version" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy image digest and publish Lambda version
+        id: deploy
+        shell: bash
+        env:
+          IMAGE_URI: ${{ steps.published-image.outputs.image_uri }}
+        run: |
+          set -euo pipefail
+          aws lambda update-function-code \
+            --function-name "$LAMBDA_FUNCTION_NAME" \
+            --image-uri "$IMAGE_URI" >/dev/null
+
+          aws lambda wait function-updated \
+            --function-name "$LAMBDA_FUNCTION_NAME"
+
+          version=$(aws lambda publish-version \
+            --function-name "$LAMBDA_FUNCTION_NAME" \
+            --description "Aventra AI ${DEPLOY_SHA} (GitHub run ${GITHUB_RUN_ID})" \
+            --query Version \
+            --output text)
+
+          if aws lambda get-alias \
+            --function-name "$LAMBDA_FUNCTION_NAME" \
+            --name "$LAMBDA_ALIAS" >/dev/null 2>&1; then
+            aws lambda update-alias \
+              --function-name "$LAMBDA_FUNCTION_NAME" \
+              --name "$LAMBDA_ALIAS" \
+              --function-version "$version" >/dev/null
+          else
+            aws lambda create-alias \
+              --function-name "$LAMBDA_FUNCTION_NAME" \
+              --name "$LAMBDA_ALIAS" \
+              --function-version "$version" \
+              --description "Production deployment alias" >/dev/null
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "image_uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke-test production health
+        if: env.SMOKE_TEST_URL != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_url="${SMOKE_TEST_URL%/}"
+          curl --fail --show-error --silent \
+            --retry 6 \
+            --retry-all-errors \
+            --retry-delay 10 \
+            "${base_url}/api/health"
+
+      - name: Roll back alias after a failed deployment check
+        if: failure() && steps.previous.outputs.version != ''
+        shell: bash
+        run: |
+          aws lambda update-alias \
+            --function-name "$LAMBDA_FUNCTION_NAME" \
+            --name "$LAMBDA_ALIAS" \
+            --function-version "${{ steps.previous.outputs.version }}"
+
+      - name: Publish deployment summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## AWS Lambda deployment"
+            echo ""
+            echo "- Commit: \`${DEPLOY_SHA}\`"
+            echo "- Function: \`${LAMBDA_FUNCTION_NAME}\`"
+            echo "- Alias: \`${LAMBDA_ALIAS}\`"
+            echo "- New version: \`${{ steps.deploy.outputs.version || 'not published' }}\`"
+            echo "- Image: \`${{ steps.deploy.outputs.image_uri || 'not deployed' }}\`"
+            echo "- Manifest: \`${{ steps.published-image.outputs.manifest_media_type || 'not validated' }}\`"
+            echo "- Config: \`${{ steps.published-image.outputs.config_media_type || 'not validated' }}\`"
+            echo "- Layers: \`${{ steps.published-image.outputs.layer_media_types || 'not validated' }}\`"
+            echo "- Previous version: \`${{ steps.previous.outputs.version || 'none' }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

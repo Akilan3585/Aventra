@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/node_modules.corrupt-*/
 /.pnpm-store/
 /.pnp
 .pnp.*
@@ -31,6 +32,8 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 .codex-dev*.log
+.codex-preview*.log
+.codex-server-*.log
 
 # env files (can opt-in for committing if needed)
 .env*

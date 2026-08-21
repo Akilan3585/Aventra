@@ -4,13 +4,27 @@ import { SignIn, SignUp, useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-export function ClerkAuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
+type ClerkAuthFormProps = {
+  fallbackRedirectUrl?: string;
+  mode: "sign-in" | "sign-up";
+  path?: string;
+  signInUrl?: string;
+  signUpUrl?: string;
+};
+
+export function ClerkAuthForm({
+  fallbackRedirectUrl = "/app",
+  mode,
+  path = mode === "sign-in" ? "/sign-in" : "/sign-up",
+  signInUrl = "/sign-in",
+  signUpUrl = "/sign-up",
+}: ClerkAuthFormProps) {
   const { isLoaded, userId } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (isLoaded && userId) router.replace("/dashboard");
-  }, [isLoaded, router, userId]);
+    if (isLoaded && userId) router.replace(fallbackRedirectUrl);
+  }, [fallbackRedirectUrl, isLoaded, router, userId]);
 
   if (!isLoaded || userId) {
     return (
@@ -27,17 +41,17 @@ export function ClerkAuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
 
   return mode === "sign-in" ? (
     <SignIn
-      fallbackRedirectUrl="/dashboard"
-      path="/sign-in"
+      fallbackRedirectUrl={fallbackRedirectUrl}
+      path={path}
       routing="path"
-      signUpUrl="/sign-up"
+      signUpUrl={signUpUrl}
     />
   ) : (
     <SignUp
-      fallbackRedirectUrl="/dashboard"
-      path="/sign-up"
+      fallbackRedirectUrl={fallbackRedirectUrl}
+      path={path}
       routing="path"
-      signInUrl="/sign-in"
+      signInUrl={signInUrl}
     />
   );
 }

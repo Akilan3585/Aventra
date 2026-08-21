@@ -4,7 +4,14 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requirePermission } from "@/server/auth/campus-access";
+import { facultyOwnsEnrollment } from "@/server/auth/academic-scope";
 import { createSupabaseAdminClient } from "@/server/supabase/admin-client";
+import {
+  canTransitionMaintenanceTicket,
+  isFutureCampusDate,
+  maintenanceStatuses,
+  maintenanceTransitionNeedsVerification,
+} from "@/features/operations/domain/operations-rules";
 
 export type OperationActionState = {
   message: string;
@@ -37,11 +44,16 @@ export async function recordAttendanceAction(
       status: formData.get("status"),
     });
     if (!parsed.success) return errorState("Choose an enrollment, date, and valid attendance status.");
+    if (isFutureCampusDate(parsed.data.sessionDate)) return errorState("Attendance cannot be recorded for a future date.");
+    if (
+      access.role === "faculty" &&
+      (!access.profileId || !(await facultyOwnsEnrollment(access.profileId, parsed.data.enrollmentId)))
+    ) return errorState("You can record attendance only for students in your assigned classes.");
 
     const client = createSupabaseAdminClient();
     const { error } = await client.from("attendance_records").upsert({
       enrollment_id: parsed.data.enrollmentId,
-      recorded_by_profile_id: null,
+      recorded_by_profile_id: access.profileId,
       session_date: parsed.data.sessionDate,
       status: parsed.data.status,
     }, { onConflict: "enrollment_id,session_date" });
@@ -49,7 +61,7 @@ export async function recordAttendanceAction(
 
     await client.from("audit_logs").insert({
       action: "attendance.recorded",
-      actor_profile_id: null,
+      actor_profile_id: access.profileId,
       entity_id: parsed.data.enrollmentId,
       entity_type: "enrollment",
       metadata: { actor_clerk_id: access.userId, date: parsed.data.sessionDate, status: parsed.data.status },
@@ -83,25 +95,39 @@ export async function createScheduleAction(
     if (endsAt <= startsAt) return errorState("End time must be after start time.");
 
     const client = createSupabaseAdminClient();
-    const [conflictsResult, roomResult, enrollmentResult] = await Promise.all([
+    const [roomConflicts, offeringConflicts, roomResult, enrollmentResult, offeringResult] = await Promise.all([
       client.from("schedules").select("id").eq("room_id", parsed.data.roomId).lt("starts_at", endsAt.toISOString()).gt("ends_at", startsAt.toISOString()).limit(1),
+      client.from("schedules").select("id").eq("offering_id", parsed.data.offeringId).lt("starts_at", endsAt.toISOString()).gt("ends_at", startsAt.toISOString()).limit(1),
       client.from("rooms").select("capacity, is_active").eq("id", parsed.data.roomId).single(),
       client.from("enrollments").select("id", { count: "exact", head: true }).eq("offering_id", parsed.data.offeringId),
+      client.from("course_offerings").select("faculty_id").eq("id", parsed.data.offeringId).single(),
     ]);
-    if (conflictsResult.error || roomResult.error || enrollmentResult.error) return errorState("Schedule constraints could not be checked.");
-    if (conflictsResult.data.length) return errorState("That room already has an overlapping session.");
+    if (roomConflicts.error || offeringConflicts.error || roomResult.error || enrollmentResult.error || offeringResult.error) return errorState("Schedule constraints could not be checked.");
+    if (roomConflicts.data.length) return errorState("That room already has an overlapping session.");
+    if (offeringConflicts.data.length) return errorState("That class already has an overlapping session.");
     if (!roomResult.data.is_active) return errorState("The selected room is inactive.");
     if ((enrollmentResult.count ?? 0) > roomResult.data.capacity) return errorState(`Room capacity is ${roomResult.data.capacity}, below the ${enrollmentResult.count ?? 0} enrolled students.`);
+    if (offeringResult.data.faculty_id) {
+      const { data: facultyConflicts, error: facultyConflictError } = await client
+        .from("schedules")
+        .select("id, course_offerings!inner(faculty_id)")
+        .eq("course_offerings.faculty_id", offeringResult.data.faculty_id)
+        .lt("starts_at", endsAt.toISOString())
+        .gt("ends_at", startsAt.toISOString())
+        .limit(1);
+      if (facultyConflictError) return errorState("Faculty availability could not be checked.");
+      if (facultyConflicts.length) return errorState("The assigned faculty member already has an overlapping session.");
+    }
 
     const { data, error } = await client.from("schedules").insert({
-      created_by_profile_id: null,
+      created_by_profile_id: access.profileId,
       ends_at: endsAt.toISOString(),
       offering_id: parsed.data.offeringId,
       room_id: parsed.data.roomId,
       starts_at: startsAt.toISOString(),
     }).select("id").single();
     if (error) return errorState("The schedule could not be created.");
-    await client.from("audit_logs").insert({ action: "schedule.created", actor_profile_id: null, entity_id: data.id, entity_type: "schedule", metadata: { actor_clerk_id: access.userId } });
+    await client.from("audit_logs").insert({ action: "schedule.created", actor_profile_id: access.profileId, entity_id: data.id, entity_type: "schedule", metadata: { actor_clerk_id: access.userId } });
     refreshOperations("/schedules", "/classrooms");
     return { message: "Session scheduled after capacity and overlap checks.", status: "success" };
   } catch {
@@ -136,12 +162,12 @@ export async function createMaintenanceTicketAction(
       description: parsed.data.description,
       equipment_id: parsed.data.equipmentId || null,
       priority: parsed.data.priority,
-      reported_by_profile_id: null,
+      reported_by_profile_id: access.profileId,
       room_id: parsed.data.roomId,
       title: parsed.data.title,
     }).select("id").single();
     if (error) return errorState("The maintenance ticket could not be created.");
-    await client.from("audit_logs").insert({ action: "maintenance.created", actor_profile_id: null, entity_id: data.id, entity_type: "maintenance_ticket", metadata: { actor_clerk_id: access.userId, priority: parsed.data.priority } });
+    await client.from("audit_logs").insert({ action: "maintenance.created", actor_profile_id: access.profileId, entity_id: data.id, entity_type: "maintenance_ticket", metadata: { actor_clerk_id: access.userId, priority: parsed.data.priority } });
     refreshOperations("/maintenance", "/classrooms");
     return { message: "Maintenance ticket opened and readiness was recalculated.", status: "success" };
   } catch {
@@ -149,14 +175,50 @@ export async function createMaintenanceTicketAction(
   }
 }
 
-const ticketStatusSchema = z.object({ ticketId: z.uuid(), status: z.enum(["open", "assigned", "in_progress", "resolved", "closed"]) });
+const ticketStatusSchema = z.object({
+  resolutionVerified: z.boolean(),
+  ticketId: z.uuid(),
+  status: z.enum(maintenanceStatuses),
+});
 
 export async function updateMaintenanceStatusAction(formData: FormData) {
-  await requirePermission("maintenance:manage");
-  const parsed = ticketStatusSchema.safeParse({ ticketId: formData.get("ticketId"), status: formData.get("status") });
+  const access = await requirePermission("maintenance:manage");
+  const parsed = ticketStatusSchema.safeParse({
+    resolutionVerified: formData.get("resolutionVerified") === "on",
+    ticketId: formData.get("ticketId"),
+    status: formData.get("status"),
+  });
   if (!parsed.success) return;
-  const terminal = ["resolved", "closed"].includes(parsed.data.status);
   const client = createSupabaseAdminClient();
-  await client.from("maintenance_tickets").update({ resolved_at: terminal ? new Date().toISOString() : null, status: parsed.data.status }).eq("id", parsed.data.ticketId);
+  const { data: ticket, error: ticketError } = await client
+    .from("maintenance_tickets")
+    .select("status")
+    .eq("id", parsed.data.ticketId)
+    .maybeSingle();
+  if (ticketError || !ticket) return;
+  if (!canTransitionMaintenanceTicket(ticket.status, parsed.data.status)) return;
+  if (maintenanceTransitionNeedsVerification(parsed.data.status) && !parsed.data.resolutionVerified) return;
+
+  const terminal = maintenanceTransitionNeedsVerification(parsed.data.status);
+  const { data: updated, error } = await client
+    .from("maintenance_tickets")
+    .update({ resolved_at: terminal ? new Date().toISOString() : null, status: parsed.data.status })
+    .eq("id", parsed.data.ticketId)
+    .eq("status", ticket.status)
+    .select("id")
+    .maybeSingle();
+  if (error || !updated) return;
+  await client.from("audit_logs").insert({
+    action: "maintenance.status_changed",
+    actor_profile_id: access.profileId,
+    entity_id: parsed.data.ticketId,
+    entity_type: "maintenance_ticket",
+    metadata: {
+      actor_clerk_id: access.userId,
+      from_status: ticket.status,
+      resolution_verified: parsed.data.resolutionVerified,
+      to_status: parsed.data.status,
+    },
+  });
   refreshOperations("/maintenance", "/classrooms");
 }

@@ -11,7 +11,7 @@ import { resolveWorkspaceAccess } from "@/server/workspace/workspace-access";
 export const dynamic = "force-dynamic";
 
 export default async function NotificationsPage() {
-  const access = await resolveWorkspaceAccess("reports:read", "campus:manage");
+  const access = await resolveWorkspaceAccess("workspace:access", "campus:manage");
   const campusAccess = access.mode === "live" ? await getCampusAccess() : null;
   const profileId = campusAccess ? await resolveActorProfileId(campusAccess.userId) : null;
   let workspace = null;

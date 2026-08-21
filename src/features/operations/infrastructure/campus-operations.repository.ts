@@ -3,6 +3,7 @@ import "server-only";
 import { DatabaseQueryError } from "@/server/database/database-query-error";
 import { createSupabaseAdminClient } from "@/server/supabase/admin-client";
 import { intervalsOverlap, readinessLabel, readinessScore, ticketSlaHours } from "@/features/operations/domain/operations-rules";
+import { facultyEnrollmentIds, facultyOfferingIds } from "@/server/auth/academic-scope";
 
 export type AttendanceStatus = "present" | "absent" | "late" | "excused";
 
@@ -30,22 +31,30 @@ export type AttendanceWorkspace = {
   todayRecorded: number;
 };
 
-export async function loadAttendanceWorkspace(): Promise<AttendanceWorkspace> {
+export async function loadAttendanceWorkspace(facultyProfileId?: string): Promise<AttendanceWorkspace> {
   const client = createSupabaseAdminClient();
-  const [recordsResult, enrollmentsResult] = await Promise.all([
-    client.from("attendance_records").select(`
+  const enrollmentIds = facultyProfileId ? await facultyEnrollmentIds(facultyProfileId) : null;
+  if (enrollmentIds && !enrollmentIds.length) return { absent: 0, attendanceRate: null, enrollmentOptions: [], late: 0, records: [], todayRecorded: 0 };
+  let recordsQuery = client.from("attendance_records").select(`
       id, session_date, status,
       enrollments (
         id,
         students (student_number, profiles (display_name)),
         course_offerings (section, courses (code, title))
       )
-    `).order("session_date", { ascending: false }).limit(150),
-    client.from("enrollments").select(`
+    `);
+  let enrollmentsQuery = client.from("enrollments").select(`
       id,
       students (student_number, profiles (display_name)),
       course_offerings (section, courses (code, title))
-    `).order("enrolled_at", { ascending: false }).limit(500),
+    `);
+  if (enrollmentIds) {
+    recordsQuery = recordsQuery.in("enrollment_id", enrollmentIds);
+    enrollmentsQuery = enrollmentsQuery.in("id", enrollmentIds);
+  }
+  const [recordsResult, enrollmentsResult] = await Promise.all([
+    recordsQuery.order("session_date", { ascending: false }).limit(150),
+    enrollmentsQuery.order("enrolled_at", { ascending: false }).limit(500),
   ]);
   if (recordsResult.error) throw new DatabaseQueryError("load attendance", recordsResult.error.message);
   if (enrollmentsResult.error) throw new DatabaseQueryError("load attendance enrollments", enrollmentsResult.error.message);
@@ -100,10 +109,11 @@ export type ScheduleWorkspace = {
   utilizationPercent: number;
 };
 
-export async function loadScheduleWorkspace(): Promise<ScheduleWorkspace> {
+export async function loadScheduleWorkspace(facultyProfileId?: string): Promise<ScheduleWorkspace> {
   const client = createSupabaseAdminClient();
-  const [scheduleResult, enrollmentResult, offeringsResult, roomsResult] = await Promise.all([
-    client.from("schedules").select(`
+  const offeringIds = facultyProfileId ? await facultyOfferingIds(facultyProfileId) : null;
+  if (offeringIds && !offeringIds.length) return { conflicts: 0, offeringOptions: [], roomOptions: [], schedules: [], todaySessions: 0, utilizationPercent: 0 };
+  let scheduleQuery = client.from("schedules").select(`
       id, starts_at, ends_at,
       rooms (code, name, capacity),
       course_offerings (
@@ -111,9 +121,18 @@ export async function loadScheduleWorkspace(): Promise<ScheduleWorkspace> {
         courses (code, title),
         faculty_members (employee_number, profiles (display_name))
       )
-    `).order("starts_at", { ascending: true }).limit(250),
-    client.from("enrollments").select("offering_id"),
-    client.from("course_offerings").select("id, section, courses (code, title)").order("academic_year", { ascending: false }).limit(300),
+    `);
+  let enrollmentQuery = client.from("enrollments").select("offering_id");
+  let offeringsQuery = client.from("course_offerings").select("id, section, courses (code, title)");
+  if (offeringIds) {
+    scheduleQuery = scheduleQuery.in("offering_id", offeringIds);
+    enrollmentQuery = enrollmentQuery.in("offering_id", offeringIds);
+    offeringsQuery = offeringsQuery.in("id", offeringIds);
+  }
+  const [scheduleResult, enrollmentResult, offeringsResult, roomsResult] = await Promise.all([
+    scheduleQuery.order("starts_at", { ascending: true }).limit(250),
+    enrollmentQuery,
+    offeringsQuery.order("academic_year", { ascending: false }).limit(300),
     client.from("rooms").select("id, code, name, capacity").eq("is_active", true).order("code"),
   ]);
   if (scheduleResult.error) throw new DatabaseQueryError("load schedules", scheduleResult.error.message);

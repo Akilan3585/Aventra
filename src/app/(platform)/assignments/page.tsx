@@ -1,0 +1,28 @@
+import { BookCheck, CalendarClock, CircleCheck, ClipboardList } from "lucide-react";
+
+import { submitAssignmentAction } from "@/features/academics/application/academic-workflow-actions";
+import { loadAssignmentsWorkspace } from "@/features/academics/infrastructure/academic-workflows.repository";
+import { AssignmentCreator, GradeSubmissionForm } from "@/features/academics/presentation/academic-workflow-forms";
+import { EmptyOperationsState, OperationsHeader, OperationsMetrics, StatusPill, WorkspaceBanner } from "@/components/operations/operations-ui";
+import { Card } from "@/design-system/primitives/card";
+import { resolveWorkspaceAccess } from "@/server/workspace/workspace-access";
+
+export const dynamic = "force-dynamic";
+
+export default async function AssignmentsPage() {
+  const access = await resolveWorkspaceAccess("assignments:read", "assignments:manage");
+  let workspace = null;
+  if (access.mode === "live") try { workspace = await loadAssignmentsWorkspace(access.role, access.profileId); } catch { workspace = null; }
+  const mode = access.mode === "live" && !workspace ? "error" : access.mode;
+  const data = workspace ?? { assignments: [], offeringOptions: [] };
+  const now = 0;
+  const pending = data.assignments.filter((assignment) => !assignment.submissions.some((submission) => submission.submitted_at)).length;
+  const awaitingGrade = data.assignments.reduce((sum, assignment) => sum + assignment.submissions.filter((submission) => submission.submitted_at && !submission.graded_at).length, 0);
+  return <section><OperationsHeader description="Publish coursework, track completion, and return transparent marks and feedback from one governed workflow." eyebrow="Academic delivery" title={access.role === "student" ? "My assignments." : "Assignments and grading."} /><WorkspaceBanner mode={mode} />
+    {mode === "live" && access.canManage ? <div className="mt-6"><AssignmentCreator offerings={data.offeringOptions} /></div> : null}
+    <OperationsMetrics metrics={[{ detail: "Coursework visible in your current scope", icon: ClipboardList, label: "Assignments", value: data.assignments.length }, { detail: "Work not yet marked as submitted", icon: CalendarClock, label: "Pending", value: access.role === "student" ? pending : "—" }, { detail: "Submitted work awaiting assessment", icon: BookCheck, label: "Awaiting grade", value: awaitingGrade }, { detail: "Submissions with marks and feedback", icon: CircleCheck, label: "Graded", value: data.assignments.reduce((sum, item) => sum + item.submissions.filter((submission) => submission.graded_at).length, 0) }]} />
+    <Card className="mt-6 overflow-hidden"><div className="border-b border-slate-100 p-5 sm:p-6"><h2 className="font-semibold text-slate-950">Coursework</h2><p className="mt-1 text-sm text-slate-500">Only classes assigned or enrolled to your verified campus profile appear here.</p></div>{data.assignments.length ? <div className="divide-y divide-slate-100">{data.assignments.map((assignment) => { const ownSubmission = assignment.submissions[0]; return <article className="p-5 sm:p-6" key={assignment.id}><div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start"><div><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold text-slate-950">{assignment.title}</h3><StatusPill tone={assignment.due_at && new Date(assignment.due_at).getTime() < now ? "critical" : "neutral"}>{assignment.due_at ? new Date(assignment.due_at).toLocaleString("en-IN") : "No deadline"}</StatusPill></div><p className="mt-1 text-sm text-slate-600">{assignment.course_offerings.courses.code} · {assignment.course_offerings.section} · {assignment.maximum_marks} marks</p></div>{access.role === "student" && ownSubmission ? <StatusPill tone={ownSubmission.graded_at ? "good" : ownSubmission.submitted_at ? "warning" : "neutral"}>{ownSubmission.graded_at ? `${ownSubmission.score}/${assignment.maximum_marks}` : ownSubmission.submitted_at ? "Submitted" : "Pending"}</StatusPill> : null}</div>
+      {access.role === "student" && ownSubmission ? <div className="mt-4 flex flex-wrap items-center gap-3">{!ownSubmission.submitted_at ? <form action={submitAssignmentAction}><input name="assignmentId" type="hidden" value={assignment.id} /><input name="enrollmentId" type="hidden" value={ownSubmission.enrollment_id} /><button className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800" type="submit">Mark as submitted</button></form> : null}{ownSubmission.feedback ? <p className="text-sm text-slate-600"><strong>Feedback:</strong> {ownSubmission.feedback}</p> : null}</div> : null}
+      {access.role !== "student" && assignment.submissions.length ? <div className="mt-5 space-y-3">{assignment.submissions.filter((submission) => submission.submitted_at).map((submission) => <div className="flex flex-col justify-between gap-3 rounded-xl bg-slate-50 p-4 xl:flex-row xl:items-center" key={submission.id}><div><p className="text-sm font-semibold text-slate-900">{submission.enrollments.students.profiles?.display_name ?? "Student"}</p><p className="font-mono text-xs text-slate-500">{submission.enrollments.students.student_number} · submitted {new Date(submission.submitted_at!).toLocaleString("en-IN")}</p></div>{submission.graded_at ? <StatusPill tone="good">{submission.score}/{assignment.maximum_marks}</StatusPill> : <GradeSubmissionForm maximumMarks={assignment.maximum_marks} submissionId={submission.id} />}</div>)}</div> : null}</article>; })}</div> : <EmptyOperationsState description="Assignments appear after a faculty member publishes coursework to an active class." icon={ClipboardList} title="No assignments yet." />}</Card>
+  </section>;
+}

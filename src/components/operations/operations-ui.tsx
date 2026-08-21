@@ -35,7 +35,7 @@ export function ProgressBar({ label, tone = "blue", value }: { label?: string; t
 export function WorkspaceBanner({ mode }: { mode: "configuration" | "error" | "forbidden" | "live" }) {
   if (mode === "live") return null;
   const Icon = mode === "error" ? AlertCircle : mode === "configuration" ? DatabaseZap : ShieldCheck;
-  const content = mode === "configuration" ? ["Connect secure operations", "Add Clerk keys, CAMPUS_ADMIN_EMAILS, and the server-only SUPABASE_SECRET_KEY to .env.local, then restart and sign in."] : mode === "forbidden" ? ["Role-protected workspace", "Your signed-in campus role does not include access to this module. Update the Clerk privateMetadata.campusRole value."] : ["Live data is unavailable", "The secure connection is configured, but the operational query failed. Verify the Supabase URL and secret key."];
+  const content = mode === "configuration" ? ["Connect secure operations", "Add Clerk keys, CAMPUS_ADMIN_EMAILS, and the server-only SUPABASE_SECRET_KEY to .env.local, then restart and sign in."] : mode === "forbidden" ? ["Role-protected workspace", "Your active campus-directory role does not include access to this module. Ask a campus administrator to review your membership."] : ["Live data is unavailable", "The secure connection is configured, but the operational query failed. Verify the Supabase URL and secret key."];
   return <Card className="mt-8 border-amber-200 bg-amber-50/70 p-6"><div className="flex gap-4"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-amber-700 shadow-sm"><Icon className="size-5" /></span><div><h2 className="font-semibold text-slate-950">{content[0]}</h2><p className="mt-1 text-sm leading-6 text-slate-600">{content[1]}</p></div></div></Card>;
 }
 

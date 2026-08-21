@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function CoursesPage() {
   const access = await resolveWorkspaceAccess("reports:read", "campus:manage");
   let workspace = null;
-  if (access.mode === "live") try { workspace = await loadCoursesWorkspace(); } catch { workspace = null; }
+  if (access.mode === "live") try { workspace = await loadCoursesWorkspace(access.role === "faculty" ? access.profileId ?? undefined : undefined); } catch { workspace = null; }
   const mode = access.mode === "live" && !workspace ? "error" : access.mode;
   const data = workspace ?? { courses: [], departments: [], faculty: [], offerings: [] };
   const departmentOptions = data.departments.map((item) => ({ id: item.id, label: `${item.code} — ${item.name}` }));

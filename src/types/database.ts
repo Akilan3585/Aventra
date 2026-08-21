@@ -738,33 +738,56 @@ export type Database = {
       }
       profiles: {
         Row: {
+          approved_at: string | null
+          approved_by_profile_id: string | null
           campus_role: string
           clerk_user_id: string | null
           created_at: string
           display_name: string
           email: string
           id: string
+          membership_status: string
           updated_at: string
+          valid_from: string | null
+          valid_until: string | null
         }
         Insert: {
+          approved_at?: string | null
+          approved_by_profile_id?: string | null
           campus_role: string
           clerk_user_id?: string | null
           created_at?: string
           display_name: string
           email: string
           id: string
+          membership_status?: string
           updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
         }
         Update: {
+          approved_at?: string | null
+          approved_by_profile_id?: string | null
           campus_role?: string
           clerk_user_id?: string | null
           created_at?: string
           display_name?: string
           email?: string
           id?: string
+          membership_status?: string
           updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_approved_by_profile_id_fkey"
+            columns: ["approved_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rooms: {
         Row: {

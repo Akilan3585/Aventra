@@ -6,6 +6,8 @@ import { z } from "zod";
 import { resolveActorProfileId } from "@/features/administration/infrastructure/administration.repository";
 import { requirePermission } from "@/server/auth/campus-access";
 import { createSupabaseAdminClient } from "@/server/supabase/admin-client";
+import { membershipStatuses } from "@/server/auth/campus-access";
+import { roles } from "@/server/auth/permissions";
 
 export type AdministrationActionState = { message: string; status: "idle" | "error" | "success" };
 
@@ -69,17 +71,61 @@ export async function createOfferingAction(_: AdministrationActionState, formDat
   } catch { return failed("Sign in with campus-management permission."); }
 }
 
-const facultySchema = z.object({ departmentId: z.uuid(), designation: z.string().trim().min(2).max(100), employeeNumber: z.string().trim().min(2).max(30).transform((value) => value.toUpperCase()) });
+const facultySchema = z.object({
+  departmentId: z.uuid(),
+  designation: z.string().trim().min(2).max(100),
+  displayName: z.string().trim().min(2).max(120),
+  email: z.email().trim().toLowerCase(),
+  employeeNumber: z.string().trim().min(2).max(30).transform((value) => value.toUpperCase()),
+});
 export async function createFacultyAction(_: AdministrationActionState, formData: FormData): Promise<AdministrationActionState> {
   try {
     const access = await requirePermission("campus:manage");
-    const parsed = facultySchema.safeParse({ departmentId: formData.get("departmentId"), designation: formData.get("designation"), employeeNumber: formData.get("employeeNumber") });
-    if (!parsed.success) return failed("Complete the employee number, designation, and department.");
-    const { data, error } = await createSupabaseAdminClient().from("faculty_members").insert({ department_id: parsed.data.departmentId, designation: parsed.data.designation, employee_number: parsed.data.employeeNumber }).select("id").single();
-    if (error) return failed(error.code === "23505" ? "That employee number already exists." : "Faculty member could not be created.");
+    const parsed = facultySchema.safeParse({ departmentId: formData.get("departmentId"), designation: formData.get("designation"), displayName: formData.get("displayName"), email: formData.get("email"), employeeNumber: formData.get("employeeNumber") });
+    if (!parsed.success) return failed("Complete the faculty identity, employee number, designation, and department.");
+    const client = createSupabaseAdminClient();
+    const { data: existingProfile, error: profileLookupError } = await client
+      .from("profiles")
+      .select("id, clerk_user_id, campus_role")
+      .eq("email", parsed.data.email)
+      .maybeSingle();
+    if (profileLookupError) return failed("Faculty identity could not be checked.");
+    if (existingProfile?.campus_role === "super-admin") return failed("A super administrator cannot be reassigned as faculty.");
+
+    const profileId = existingProfile?.id ?? `pending:${crypto.randomUUID()}`;
+    const identityAlreadyLinked = Boolean(existingProfile?.clerk_user_id);
+    const membershipStatus = identityAlreadyLinked ? "active" : "pending";
+    const profileWrite = existingProfile
+      ? client
+          .from("profiles")
+          .update({
+            campus_role: "faculty",
+            display_name: parsed.data.displayName,
+            membership_status: membershipStatus,
+            approved_at: identityAlreadyLinked ? new Date().toISOString() : null,
+            valid_from: identityAlreadyLinked ? new Date().toISOString() : null,
+            valid_until: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", profileId)
+      : client.from("profiles").insert({
+          campus_role: "faculty",
+          display_name: parsed.data.displayName,
+          email: parsed.data.email,
+          id: profileId,
+          membership_status: "pending",
+        });
+    const { error: profileError } = await profileWrite;
+    if (profileError) return failed("Faculty profile could not be prepared.");
+
+    const { data, error } = await client.from("faculty_members").insert({ department_id: parsed.data.departmentId, designation: parsed.data.designation, employee_number: parsed.data.employeeNumber, profile_id: profileId }).select("id").single();
+    if (error) {
+      if (!existingProfile) await client.from("profiles").delete().eq("id", profileId);
+      return failed(error.code === "23505" ? "That employee number or faculty profile already exists." : "Faculty member could not be created.");
+    }
     await audit(access.userId, "faculty.created", "faculty_member", data.id, { employee_number: parsed.data.employeeNumber });
-    refresh("/faculty", "/courses");
-    return succeeded("Faculty roster record created. Link the profile after invitation acceptance.");
+    refresh("/faculty", "/courses", "/settings");
+    return succeeded(identityAlreadyLinked ? "Faculty profile created and activated for the existing verified identity." : "Faculty roster record created. It activates automatically when the faculty member signs in with this email.");
   } catch { return failed("Sign in with campus-management permission."); }
 }
 
@@ -152,19 +198,19 @@ export async function createNotificationAction(_: AdministrationActionState, for
 }
 
 export async function markNotificationReadAction(formData: FormData) {
-  const access = await requirePermission("reports:read");
+  const access = await requirePermission("workspace:access");
   const notificationId = z.uuid().safeParse(formData.get("notificationId"));
   if (!notificationId.success) return;
   const profileId = await resolveActorProfileId(access.userId);
   if (!profileId) return;
-  await createSupabaseAdminClient().from("notifications").update({ read_at: new Date().toISOString(), status: "sent" }).eq("id", notificationId.data).eq("recipient_profile_id", profileId);
+  await createSupabaseAdminClient().from("notifications").update({ read_at: new Date().toISOString(), status: "read" }).eq("id", notificationId.data).eq("recipient_profile_id", profileId);
   revalidatePath("/notifications");
 }
 
 const profileSchema = z.object({ displayName: z.string().trim().min(2).max(120) });
 export async function updateProfileAction(_: AdministrationActionState, formData: FormData): Promise<AdministrationActionState> {
   try {
-    const access = await requirePermission("reports:read");
+    const access = await requirePermission("workspace:access");
     const parsed = profileSchema.safeParse({ displayName: formData.get("displayName") });
     if (!parsed.success) return failed("Enter a valid display name.");
     const profileId = await resolveActorProfileId(access.userId);
@@ -175,4 +221,55 @@ export async function updateProfileAction(_: AdministrationActionState, formData
     revalidatePath("/profile");
     return succeeded("Campus profile updated.");
   } catch { return failed("Sign in to update your profile."); }
+}
+
+const membershipSchema = z.object({
+  campusRole: z.enum(roles),
+  membershipStatus: z.enum(membershipStatuses),
+  profileId: z.string().min(2),
+});
+
+export async function updateCampusMembershipAction(formData: FormData) {
+  const access = await requirePermission("campus:manage");
+  const parsed = membershipSchema.safeParse({
+    campusRole: formData.get("campusRole"),
+    membershipStatus: formData.get("membershipStatus"),
+    profileId: formData.get("profileId"),
+  });
+  if (!parsed.success) return;
+
+  const client = createSupabaseAdminClient();
+  const { data: target } = await client
+    .from("profiles")
+    .select("campus_role")
+    .eq("id", parsed.data.profileId)
+    .maybeSingle();
+
+  if (parsed.data.profileId === access.profileId) return;
+  if (
+    (target?.campus_role === "super-admin" || parsed.data.campusRole === "super-admin") &&
+    access.role !== "super-admin"
+  ) return;
+
+  const actorProfileId = await resolveActorProfileId(access.userId);
+  const activated = parsed.data.membershipStatus === "active";
+  const { error } = await client
+    .from("profiles")
+    .update({
+      approved_at: activated ? new Date().toISOString() : null,
+      approved_by_profile_id: activated ? actorProfileId : null,
+      campus_role: parsed.data.campusRole,
+      membership_status: parsed.data.membershipStatus,
+      updated_at: new Date().toISOString(),
+      valid_from: activated ? new Date().toISOString() : null,
+    })
+    .eq("id", parsed.data.profileId);
+
+  if (!error) {
+    await audit(access.userId, "campus_membership.updated", "profile", parsed.data.profileId, {
+      campus_role: parsed.data.campusRole,
+      membership_status: parsed.data.membershipStatus,
+    });
+  }
+  revalidatePath("/settings");
 }

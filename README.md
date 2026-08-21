@@ -1,299 +1,220 @@
 # Aventra AI
 
-Aventra AI is a smart-campus operations platform that combines student administration, attendance, scheduling, facilities, maintenance, analytics, role-based security, and auditable AI-agent workflows in one application.
+Aventra AI is a production-oriented smart campus management platform for students, faculty, maintenance teams, and campus administrators. It brings academic workflows, attendance, scheduling, facilities, analytics, and governed AI decision support into one role-aware application.
 
-The project is implemented as a production-oriented modular monolith using Next.js, React, TypeScript, Clerk, Supabase, and Tailwind CSS.
+The application is built as a modular Next.js monolith with Clerk authentication, Supabase PostgreSQL, server-enforced permissions, audited mutations, and multi-agent workflows powered by the Vercel AI SDK.
 
-## Current implementation status
+## Product overview
 
-The following areas have working data-loading and operational interfaces:
+Aventra AI replaces fragmented college ERP experiences with focused workspaces for each campus user.
 
-- Campus dashboard
-- Student directory and student creation
+| Portal | Primary users | Capabilities |
+| --- | --- | --- |
+| Student | Enrolled students | Personal dashboard, attendance visibility, assignments, submissions, notifications, and profile |
+| Faculty | Teaching staff | Assigned students and courses, attendance recording, assignments, grading, schedules, reports, and AI assistance |
+| Campus | Administrators and operations teams | Institution-wide academics, enrollment, facilities, maintenance, analytics, agents, audit logs, and settings |
+
+Users choose a portal before authentication. After sign-in, the requested portal is checked against the authoritative campus membership stored in Supabase. A user cannot gain access by changing a URL or selecting a different portal.
+
+## Implemented capabilities
+
+- Three distinct portal entry points for students, faculty, and campus teams
+- Clerk sign-in, sign-up, session handling, and identity synchronization
+- Supabase-backed campus membership lifecycle: `pending`, `active`, `suspended`, and `expired`
+- Role- and permission-based workspace navigation
+- Student, faculty, department, course, offering, and enrollment administration
 - Attendance recording and monitoring
-- Schedule creation and conflict monitoring
-- Classroom and laboratory readiness
-- Maintenance ticket creation and status updates
-- Cross-campus analytics
-- Clerk authentication and role-based authorization
-- Supabase schema, repositories, typed access, and audit records
-
-The following areas currently have database foundations, repository foundations, or landing pages, but still require complete interactive workflows:
-
-- Departments
-- Courses and course offerings
-- Faculty
-- Equipment inventory administration
-- Academic performance and semester results
-- Notifications
-- Reports and exports
-- Audit-log viewer
-- Settings and profile administration
-- Live execution of the AI agents
-
-## Core features
-
-### Campus dashboard
-
-The dashboard provides an operational overview of:
-
-- Verified student records
-- Campus attendance rate
-- Teaching sessions scheduled for the current day
-- Queued or running agent executions
-- Schedule conflicts
-- Rooms requiring attention
-- Open maintenance tickets
-
-The page loads its metrics from Supabase through the operations repository and displays configuration, authorization, connection-error, and live states separately.
-
-### Student management
-
-The student workspace supports:
-
-- Student directory listing
-- Student identity and academic-number display
-- Department and enrollment context
-- Attendance, academic-average, and CGPA signals
-- Explainable student-risk classification
-- Permission-controlled student creation
-- Input validation with Zod
-- Audit-log creation after mutations
-
-Student-success rules remain separate from attendance and performance persistence. This prevents the student module from becoming the owner of unrelated academic calculations.
-
-### Attendance management
-
-The attendance control center supports:
-
-- Attendance recording for active enrollments
-- Present, absent, late, and excused states
-- Daily recorded-session count
-- Absence and late-arrival summaries
-- Overall attendance percentage
-- Policy-threshold warnings
-- A recent-records table
-- Permission-controlled recording
-- Audited database mutations
-
-### Scheduling
-
-The scheduling workspace is designed around:
-
-- Course-offering timetables
-- Faculty and room allocation
-- Start and end times
-- Capacity constraints
-- Room conflicts
-- Faculty conflicts
-- Schedule-change workflows
-- Permission-controlled schedule creation
-
-Schedule data is evaluated alongside room capacity and facility readiness so operational conflicts can be surfaced before a human approves a change.
-
-### Classrooms, laboratories, and equipment readiness
-
-The facilities interface combines room, equipment, and maintenance information to calculate:
-
-- Managed teaching spaces
-- Total seating capacity
-- Number of laboratories
-- Average readiness score
-- Rooms requiring review
-- Operational, degraded, and offline equipment totals
-- Open maintenance tickets per room
-
-Readiness is derived from source data. It is not generated by an AI model.
-
-### Maintenance management
-
-The maintenance workspace supports:
-
-- Ticket creation
-- Low, medium, high, and critical priorities
-- Open, assigned, in-progress, resolved, and closed states
-- Room and equipment context
-- Due-date and overdue monitoring
-- Status changes
-- Permission checks
-- Audit records for ticket mutations
-
-### Analytics and decision intelligence
-
-The analytics workspace combines information from students, attendance, schedules, classrooms, equipment, and maintenance. It provides:
-
-- Student-success signal coverage
-- High-priority and monitored student counts
-- Attendance-health analysis
-- Operational exception totals
-- Facility-readiness metrics
-- Teaching-continuity warnings
-- Visible policy explanations
-
-Current analytics are deterministic and evidence-based. Future language-model output may explain or personalize recommendations, but it must not replace source-of-truth calculations.
-
-## AI-agent architecture
-
-Aventra defines four agent roles:
-
-1. **Coordinator agent** — delegates approved tasks, combines specialist results, identifies conflicting recommendations, and persists a final decision.
-2. **Student Success agent** — uses verified attendance, marks, GPA, and assignment data to produce risk assessments and recommendations.
-3. **Classroom agent** — evaluates capacity, timetable constraints, equipment requirements, and maintenance readiness before recommending room allocations.
-4. **Maintenance agent** — uses equipment condition and ticket history to assess urgency and room readiness.
-
-Agent results use a typed contract containing:
-
-- A structured decision
-- Confidence score
-- Supporting evidence
-- Human-readable reasons
-- Recommended next actions
-- A human-review requirement
-
-Agents are not permitted to query the database directly. Future executable agent tools must validate input, enforce the actor's permission, record an audit event, and return a typed result.
-
-Important actions remain human-controlled. An AI recommendation cannot independently move a class, contact a student, close a maintenance ticket, or approve another privileged operation.
-
-The database already includes tables for agent runs, decisions, and inter-agent messages. Provider configuration supports OpenAI or Google Gemini, but complete live agent execution is not yet implemented.
-
-## Authentication and authorization
-
-Clerk provides sign-in, sign-up, user sessions, and profile controls. Clerk webhooks link external Clerk identities to internal Supabase profiles.
-
-Supported roles are:
-
-| Role | Access summary |
-| --- | --- |
-| `super-admin` | All permissions |
-| `admin` | Campus, student, attendance, scheduling, maintenance, reports, agents, and audit management |
-| `faculty` | Student access, attendance recording, reports, and agent execution |
-| `maintenance-staff` | Maintenance management and operational reports |
-| `student` | Read-only report access |
-
-Permissions are checked on the server. Hiding a button in the interface is not treated as authorization.
-
-## Database implementation
-
-Supabase PostgreSQL is the system of record. The initial migration defines:
-
-- Departments
-- Profiles
-- Students
-- Faculty members
-- Courses and course offerings
-- Enrollments
-- Rooms and laboratories
-- Equipment
-- Schedules
-- Attendance records
-- Assignments and submissions
-- Internal marks
-- Semester results
-- Maintenance tickets
-- Notifications
-- Agent runs, decisions, and messages
-- Audit logs
-
-SQL migrations under `supabase/migrations` are the schema authority. Generated TypeScript definitions are stored in `src/types/database.ts`.
-
-Row-level security is enabled as a baseline. Until the final Clerk JWT policies are configured, public table grants remain intentionally restricted and server-side privileged access uses the Supabase secret key.
+- Assignment creation, student submission, grading, and feedback
+- Timetable creation with room, faculty, overlap, and capacity checks
+- Classroom, laboratory, and equipment readiness monitoring
+- Maintenance ticket creation, assignment, prioritization, SLA tracking, and resolution
+- Academic performance and semester-result views
+- Notifications, reports, profile, settings, analytics, and audit logs
+- Governed coordinator, student-success, classroom, and maintenance agents
+- OpenAI and Google Gemini provider support with deterministic fallback
+- Human approval for consequential AI recommendations
+- Responsive light-theme interface for desktop and mobile
 
 ## Architecture
 
-The application follows this dependency direction:
+```mermaid
+flowchart TD
+    U["Student, faculty, or campus user"] --> P["Role-specific portal"]
+    P --> C["Clerk authentication"]
+    C --> V["Campus membership verification"]
+    V -->|"active and authorized"| W["Role-scoped workspace"]
+    V -->|"pending or unlinked"| AP["Access pending"]
+    V -->|"suspended, expired, or mismatched"| AD["Access denied"]
 
-```text
-Routes and pages
-      |
-      v
-Feature application/domain APIs
-      |
-      v
-Server-only repositories and integrations
-      |
-      v
-Supabase PostgreSQL
+    W --> A["Next.js Server Components and Server Actions"]
+    A --> S["Feature application services"]
+    S --> R["Server-only repositories"]
+    R --> DB["Supabase PostgreSQL"]
+
+    W --> O["Governed AI orchestration"]
+    O --> T["Permission-aware evidence tools"]
+    T --> S
+    O --> L["Agent runs, decisions, messages, and audit logs"]
+    L --> DB
 ```
 
-AI orchestration calls feature services through authorized tools instead of bypassing application rules.
-
-### Main directories
+The dependency direction is deliberate:
 
 ```text
-src/
-  app/             Next.js routes, layouts, auth pages, and API endpoints
-  ai/              Agent contracts, provider selection, guardrails, and observability
-  components/      Application shell and shared product components
-  config/          Navigation and application configuration
-  design-system/   Tokens, primitives, and reusable visual patterns
-  features/        Business capabilities and their domain/application/data layers
-  lib/             Shared framework and Supabase helpers
-  server/          Authentication, authorization, audit, database, and workspace access
-  shared/          Framework-independent shared contracts
-  types/           Generated database types
-supabase/
-  migrations/      Authoritative SQL schema migrations
-  tests/           Database test location
-tests/
-  agents/          AI-agent evaluation tests
-  contract/        Contract tests
-  e2e/             End-to-end tests
-docs/
-  adr/             Architecture decision records
-  architecture/    Architecture documentation
+Routes and presentation
+        -> feature application and domain logic
+        -> server-only repositories and integrations
+        -> Supabase PostgreSQL
 ```
 
-## Application routes
+Pages do not query the database directly. Business rules remain inside their owning feature, and AI tools use the same authorized application paths as the rest of the product.
 
-| Route | Purpose | Status |
+## Access and authorization model
+
+Authentication answers who the user is. Campus membership and permissions answer what that user may do.
+
+### Roles
+
+| Role | Access summary |
+| --- | --- |
+| `super-admin` | Full platform access |
+| `admin` | Campus administration, academics, operations, agents, reports, and audit access |
+| `faculty` | Assigned academic scope, attendance, assignments, grading, reports, and agents |
+| `maintenance-staff` | Maintenance operations and operational reports |
+| `student` | Personal assignments, submissions, and student workspace |
+
+Authorization is enforced on the server. Hiding a navigation item or button is only a presentation decision and is never treated as a security boundary.
+
+### Portal flow
+
+1. The user selects Student, Faculty, or Campus on the public site.
+2. Clerk authenticates the user through the matching sign-in route.
+3. The application resolves the Clerk identity to an internal Supabase profile.
+4. Membership status, role, and requested portal are validated.
+5. The user is routed to the correct role workspace or an explicit pending/denied state.
+6. Every protected read and mutation performs a server-side permission check.
+
+Faculty data is additionally scoped to assigned course offerings. Student pages are scoped to the signed-in student's own records.
+
+## AI multi-agent system
+
+| Agent | Responsibility | Evidence tools |
 | --- | --- | --- |
-| `/` | Public marketing page | Implemented |
-| `/sign-in` | Clerk sign-in | Implemented when Clerk is configured |
-| `/sign-up` | Clerk account creation | Implemented when Clerk is configured |
-| `/dashboard` | Campus operations overview | Implemented |
-| `/students` | Student directory and management | Implemented |
-| `/attendance` | Attendance recording and monitoring | Implemented |
-| `/schedules` | Timetable and conflict management | Implemented |
-| `/classrooms` | Room and facility readiness | Implemented |
-| `/maintenance` | Maintenance ticket workflows | Implemented |
-| `/analytics` | Cross-campus analytics | Implemented |
-| `/departments` | Department administration | Scaffolded |
-| `/courses` | Course administration | Scaffolded |
-| `/faculty` | Faculty administration | Scaffolded |
-| `/laboratories` | Laboratory administration | Scaffolded |
-| `/equipment` | Equipment administration | Scaffolded |
-| `/performance` | Academic performance | Scaffolded |
-| `/notifications` | Campus notifications | Scaffolded |
-| `/reports` | Reports and exports | Scaffolded |
-| `/audit-logs` | Security and agent audit viewer | Scaffolded |
-| `/profile` | User profile | Scaffolded |
-| `/settings` | Campus and account settings | Scaffolded |
-| `/api/health` | Application health check | Implemented |
-| `/api/webhooks/clerk` | Clerk identity synchronization | Implemented |
+| Coordinator | Combines campus signals and identifies cross-domain exceptions | Attendance, performance, classrooms, schedules, maintenance |
+| Student Success | Identifies verified attendance or academic support signals | Attendance and performance |
+| Classroom | Evaluates room readiness, capacity, and timetable constraints | Classroom and schedule signals |
+| Maintenance | Detects critical or overdue operational work | Maintenance signals |
+
+Agent execution follows these controls:
+
+- Deterministic business rules establish the binding action and review requirement.
+- Language models explain and prioritize verified evidence; they do not replace source-of-truth calculations.
+- Required tools must run before a provider-generated result is accepted.
+- Missing keys, provider failures, or incomplete tool use safely fall back to deterministic output.
+- Confidence, evidence, reasons, next actions, provider metadata, and tool usage are persisted.
+- Privileged outcomes remain subject to authorized human review.
+- Agent runs and decisions produce immutable audit evidence.
+
+## Business rules and safeguards
+
+- Duplicate enrollment is rejected.
+- Offering capacity is checked before enrollment.
+- Attendance can only be recorded by an authorized user.
+- Schedule conflicts include room overlap, faculty overlap, and room capacity.
+- Faculty operations are restricted to assigned offerings.
+- Students can access and submit only through their personal workspace.
+- Memberships that are pending, suspended, expired, or unlinked cannot enter a protected workspace.
+- Every mutation validates untrusted input and records an audit event where required.
+- Supabase secret credentials are server-only and never exposed through `NEXT_PUBLIC_` variables.
+- AI recommendations cannot independently reassign a class, contact a student, approve a decision, or close operational work.
 
 ## Technology stack
 
 - Next.js 16 App Router
-- React 19
-- TypeScript
+- React 19 and TypeScript
 - Tailwind CSS 4
 - Clerk authentication
 - Supabase PostgreSQL and JavaScript client
+- Vercel AI SDK 7
+- OpenAI and Google Gemini providers
 - Zod validation
-- Lucide icons
 - Framer Motion
 - Radix UI foundations
+- Lucide icons
+- Vitest
 - pnpm
+- Vercel deployment
 
-## Local setup
+## Repository structure
 
-### Requirements
+```text
+src/
+  app/                    Routes, layouts, portal auth, API routes, and workspaces
+  ai/                     Agents, tools, contracts, providers, guardrails, and audit persistence
+  components/             Shared application and marketing components
+  config/                 Navigation and application configuration
+  design-system/          Design tokens, primitives, and reusable visual patterns
+  features/               Domain-focused business capabilities
+  lib/                    Shared framework helpers
+  server/                 Auth, authorization, audit, database, and workspace access
+  shared/                 Framework-independent shared contracts
+  types/                  Generated Supabase database types
+supabase/
+  migrations/             Ordered SQL schema migrations
+  tests/                  Database test location
+tests/
+  agents/                 Agent evaluation test location
+  contract/               Contract test location
+  e2e/                    End-to-end test location
+  *.test.ts               Unit and policy tests
+docs/
+  adr/                    Architecture decision records
+  architecture/           System architecture documentation
+```
+
+## Main routes
+
+### Public and authentication
+
+| Route | Purpose |
+| --- | --- |
+| `/` | Public landing page and portal selection |
+| `/sign-in` | Common portal chooser |
+| `/sign-up` | Clerk account creation |
+| `/student/sign-in` | Student portal authentication |
+| `/faculty/sign-in` | Faculty portal authentication |
+| `/campus/sign-in` | Campus-team authentication |
+| `/app` | Post-authentication portal and membership verification |
+| `/access-pending` | Unlinked or pending membership state |
+| `/access-denied` | Invalid role, status, or portal access state |
+
+### Protected workspaces
+
+| Route group | Includes |
+| --- | --- |
+| Personal workspaces | `/student-workspace`, `/faculty-workspace`, `/dashboard` |
+| Academics | `/students`, `/faculty`, `/departments`, `/courses`, `/enrollments`, `/assignments`, `/attendance`, `/performance`, `/schedules` |
+| Facilities | `/classrooms`, `/laboratories`, `/equipment`, `/maintenance` |
+| Intelligence | `/analytics`, `/agents`, `/reports`, `/notifications`, `/audit-logs` |
+| Account and administration | `/profile`, `/settings` |
+
+### API routes
+
+| Route | Purpose |
+| --- | --- |
+| `/api/health` | Service health response |
+| `/api/reports/[report]` | Authorized report generation |
+| `/api/webhooks/clerk` | Clerk identity synchronization |
+
+## Local development
+
+### Prerequisites
 
 - Node.js 20.9 or newer
 - pnpm 11
 - A Clerk application
 - A Supabase project
-- An OpenAI or Gemini API key only when live AI execution is added or enabled
+- An OpenAI or Gemini API key and model name for provider-backed AI execution
 
 ### 1. Install dependencies
 
@@ -301,54 +222,67 @@ docs/
 pnpm install
 ```
 
-### 2. Configure environment variables
-
-Copy `.env.example` to `.env.local` and replace every value ending in `REPLACE_ME`.
+### 2. Create the local environment file
 
 ```powershell
 Copy-Item .env.example .env.local
 ```
 
-Required application and integration variables include:
+Replace every value ending in `REPLACE_ME`. Never commit `.env.local`.
 
 ```dotenv
+# Application
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="..."
-CLERK_SECRET_KEY="..."
+# Clerk
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_REPLACE_ME"
+CLERK_SECRET_KEY="sk_test_REPLACE_ME"
 CAMPUS_ADMIN_EMAILS="admin@your-campus.edu"
-CLERK_WEBHOOK_SIGNING_SECRET="..."
+NEXT_PUBLIC_CLERK_SIGN_IN_URL="/sign-in"
+NEXT_PUBLIC_CLERK_SIGN_UP_URL="/sign-up"
+CLERK_WEBHOOK_SIGNING_SECRET="whsec_REPLACE_ME"
 
-NEXT_PUBLIC_SUPABASE_URL="..."
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="..."
-SUPABASE_SECRET_KEY="..."
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL="https://your-project-ref.supabase.co"
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="sb_publishable_REPLACE_ME"
+SUPABASE_SECRET_KEY="sb_secret_REPLACE_ME"
 
+# AI
 AI_PROVIDER="openai"
-OPENAI_API_KEY="..."
-OPENAI_MODEL="..."
+OPENAI_API_KEY="sk_REPLACE_ME"
+OPENAI_MODEL="your-model-name"
+GEMINI_API_KEY="AIza_REPLACE_ME"
+GEMINI_MODEL="your-model-name"
 ```
 
-Never place a secret in a variable beginning with `NEXT_PUBLIC_`, and never commit `.env.local`.
+Only the selected AI provider needs to be configured. If the selected provider is unavailable, Aventra tries the other fully configured provider and otherwise uses deterministic fallback decisions.
 
-### 3. Apply Supabase migrations
+### 3. Apply database migrations
 
-Apply the SQL files in `supabase/migrations` to the target Supabase project in filename order. The initial schema must be applied before the Clerk identity-linking migration.
+Apply every SQL file in `supabase/migrations` in filename order:
 
-After changing the schema, regenerate `src/types/database.ts` from the connected Supabase project.
+1. `202607240001_initial_campus_schema.sql`
+2. `202607270001_link_clerk_identities.sql`
+3. `202608070001_add_foreign_key_indexes.sql`
+4. `202608100001_add_campus_membership_lifecycle.sql`
 
-### 4. Configure the Clerk webhook
+The migration files are the schema authority. After a schema change, regenerate `src/types/database.ts` from the connected Supabase project.
 
-Create a Clerk webhook pointing to:
+Row-level security is enabled as a baseline. Public table grants remain restricted; privileged campus workflows use the server-only Supabase secret key after Clerk identity and application permissions have been verified.
 
-```text
-https://YOUR_DOMAIN/api/webhooks/clerk
-```
+### 4. Configure Clerk
 
-Subscribe to `user.created` and `user.updated`, then place its signing secret in `CLERK_WEBHOOK_SIGNING_SECRET`.
+In the Clerk dashboard:
 
-Emails listed in `CAMPUS_ADMIN_EMAILS` receive initial super-admin access during identity synchronization.
+1. Copy the publishable and secret keys into `.env.local`.
+2. Create a webhook endpoint at `https://YOUR_DOMAIN/api/webhooks/clerk`.
+3. Subscribe to `user.created` and `user.updated`.
+4. Copy the webhook signing secret into `CLERK_WEBHOOK_SIGNING_SECRET`.
+5. Add initial administrator emails to `CAMPUS_ADMIN_EMAILS`.
 
-### 5. Start the development server
+For local webhook testing, expose the local application with a secure tunnel and use that HTTPS URL as the Clerk endpoint.
+
+### 5. Start the application
 
 ```bash
 pnpm dev
@@ -356,53 +290,69 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-If Clerk or Supabase is not configured, operational pages display a configuration state instead of attempting unsafe or anonymous database access.
+## Commands
 
-## Quality checks
+| Command | Purpose |
+| --- | --- |
+| `pnpm dev` | Start the development server |
+| `pnpm build` | Create a production build |
+| `pnpm start` | Run the production build |
+| `pnpm lint` | Run ESLint |
+| `pnpm typecheck` | Run TypeScript checks without emitting files |
+| `pnpm test` | Run the Vitest suite |
+| `pnpm check` | Run lint, typecheck, tests, and production build |
 
-Run individual checks with:
+## Verification
 
-```bash
-pnpm lint
-pnpm typecheck
-pnpm build
-```
-
-Run the complete project check with:
+Before opening a pull request or deploying, run:
 
 ```bash
 pnpm check
 ```
 
-## Implementation principles
+The current automated suite covers permission policy, provider configuration, role navigation, and workspace routing. Production changes should also be verified through the complete browser flow for each portal:
 
-- Business rules belong to their owning feature.
-- Pages compose feature APIs and do not query Supabase directly.
-- Database access remains server-only.
-- Every mutation validates untrusted input.
-- Authorization is enforced before data access or mutation.
-- Sensitive actions emit immutable audit records.
-- AI output must include evidence and remain reviewable.
-- Deterministic calculations remain the source of truth.
-- Important AI-proposed actions require human approval.
-- Schema changes are made through ordered SQL migrations.
+1. Sign in through the intended portal.
+2. Confirm role-specific navigation and home routing.
+3. Confirm a mismatched portal is rejected.
+4. Exercise at least one permitted mutation.
+5. Confirm a prohibited mutation is unavailable and rejected server-side.
+6. Confirm the resulting source record and audit event.
+7. Verify desktop and mobile layouts.
 
-## Recommended next milestones
+## Deployment on Vercel
 
-1. Complete Clerk JWT integration and explicit Supabase RLS policies.
-2. Add deterministic seed data and automated migration tests.
-3. Finish departments, courses, faculty, equipment, and academic-performance workflows.
-4. Implement notification delivery, preferences, and outbox processing.
-5. Implement report generation and export formats.
-6. Add a searchable audit-log interface.
-7. Implement server-only agent tools and provider adapters.
-8. Add agent evaluation fixtures, contract tests, and end-to-end tests.
-9. Add production observability, failure reporting, and deployment documentation.
+1. Import the GitHub repository into Vercel.
+2. Set the package manager to pnpm and use the detected Next.js settings.
+3. Add every required environment variable for Production and Preview.
+4. Set `NEXT_PUBLIC_APP_URL` to the deployed HTTPS origin.
+5. Update the Clerk production instance, allowed origins, redirect URLs, and webhook endpoint.
+6. Apply Supabase migrations before deploying code that depends on them.
+7. Deploy and verify `/api/health`, all three sign-in routes, and each protected role workspace.
+
+When the Vercel project is connected to the GitHub repository, pushes to the configured production branch deploy automatically. Pull requests receive preview deployments.
+
+## Production checklist
+
+- Use Clerk production keys; development keys have strict limits.
+- Use HTTPS origins for production authentication and cookies.
+- Keep `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SIGNING_SECRET`, `SUPABASE_SECRET_KEY`, and AI API keys server-only.
+- Configure environment variables separately for Development, Preview, and Production.
+- Apply and verify all migrations before promotion.
+- Confirm administrator email bootstrap values before the first identity sync.
+- Review Supabase RLS and grants for every exposed table.
+- Validate role, portal, membership status, and academic scope server-side.
+- Monitor failed webhooks, agent runs, report generation, and privileged mutations.
+- Require human review for consequential agent recommendations.
+- Run `pnpm check` and browser verification before release.
 
 ## Documentation
 
-Additional architecture decisions are available in:
+- [`docs/architecture/overview.md`](docs/architecture/overview.md)
+- [`docs/adr/0001-modular-monolith.md`](docs/adr/0001-modular-monolith.md)
+- [`docs/adr/0002-supabase-direct-access.md`](docs/adr/0002-supabase-direct-access.md)
+- [`supabase/migrations/README.md`](supabase/migrations/README.md)
 
-- `docs/architecture/overview.md`
-- `docs/adr/0001-modular-monolith.md`
-- `docs/adr/0002-supabase-direct-access.md`
+## License
+
+This repository is private. No open-source license is granted unless a license file is added explicitly.

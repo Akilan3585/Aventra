@@ -17,39 +17,51 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   findNavigationItem,
+  homeForRole,
   moduleKeywords,
-  navigationGroups,
-  navigationItems,
+  navigationForRole,
 } from "@/config/navigation";
 import { cn } from "@/lib/utils";
+import type { Role } from "@/server/auth/permissions";
 
-type AppShellProps = { children: ReactNode };
+type AppShellProps = { children: ReactNode; role: Role | null };
 
-export function AppShell({ children }: AppShellProps) {
+const workspaceNames: Record<Role, string> = {
+  admin: "Campus administration",
+  faculty: "Faculty workspace",
+  "maintenance-staff": "Facilities workspace",
+  student: "Student workspace",
+  "super-admin": "Campus administration",
+};
+
+export function AppShell({ children, role }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const roleNavigation = useMemo(() => navigationForRole(role), [role]);
+  const roleItems = useMemo(() => roleNavigation.flatMap((group) => group.items), [roleNavigation]);
+  const homeHref = homeForRole(role);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(navigationGroups.map((group) => [group.label, true])),
+    Object.fromEntries(navigationForRole(role).map((group) => [group.label, true])),
   );
   const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
   const clerkConfigured = Boolean(
     clerkPublishableKey && !clerkPublishableKey.includes("REPLACE_ME"),
   );
-  const activeItem = findNavigationItem(pathname);
+  const activeItem = roleItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)) ?? findNavigationItem(pathname);
 
   const results = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return navigationItems.slice(0, 8);
-    return navigationItems.filter((item) =>
+    if (!normalized) return roleItems.slice(0, 8);
+    return roleItems.filter((item) =>
       `${item.label} ${moduleKeywords[item.href] ?? ""}`
         .toLowerCase()
         .includes(normalized),
     );
-  }, [query]);
+  }, [query, roleItems]);
 
   useEffect(() => {
     function handleShortcut(event: KeyboardEvent) {
@@ -81,18 +93,18 @@ export function AppShell({ children }: AppShellProps) {
         )}
       >
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-100 px-5">
-          <Link className="flex items-center gap-3" href="/dashboard">
+          <Link className="flex items-center gap-3" href={homeHref}>
             <span className="grid size-9 place-items-center rounded-xl bg-blue-600 text-sm font-bold text-white shadow-sm">A</span>
             <span>
               <span className="block text-sm font-semibold tracking-tight text-slate-950">Aventra AI</span>
-              <span className="block text-[11px] font-medium text-slate-500">Smart Campus OS</span>
+              <span className="block text-[11px] font-medium text-slate-500">{role ? workspaceNames[role] : "Smart Campus OS"}</span>
             </span>
           </Link>
           <button aria-label="Close navigation" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:hidden" onClick={() => setIsMenuOpen(false)} type="button"><X className="size-5" /></button>
         </div>
 
         <nav aria-label="Primary navigation" className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-          {navigationGroups.map((group) => {
+          {roleNavigation.map((group) => {
             const isOpen = openGroups[group.label];
             return (
               <div className="mb-3" key={group.label}>
@@ -133,13 +145,13 @@ export function AppShell({ children }: AppShellProps) {
           })}
         </nav>
 
-        <div className="shrink-0 border-t border-slate-100 p-4">
+        {role === "admin" || role === "super-admin" || role === "faculty" ? <div className="shrink-0 border-t border-slate-100 p-4">
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs font-semibold text-slate-800">Aventra Intelligence</p>
-            <p className="mt-1 text-xs leading-5 text-slate-500">Review agent decisions and evidence.</p>
-            <Link className="mt-2 inline-flex text-xs font-semibold text-blue-700" href="/agents">Open agent console</Link>
+            <p className="text-xs font-semibold text-slate-800">Aventra assistant</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">Get evidence-backed help without losing human control.</p>
+            <Link className="mt-2 inline-flex text-xs font-semibold text-blue-700" href="/agents">Open assistant</Link>
           </div>
-        </div>
+        </div> : null}
       </aside>
 
       {isMenuOpen ? <button aria-label="Close navigation overlay" className="fixed inset-0 z-30 bg-slate-950/25 lg:hidden" onClick={() => setIsMenuOpen(false)} type="button" /> : null}
@@ -148,7 +160,7 @@ export function AppShell({ children }: AppShellProps) {
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-6 lg:px-8">
           <button aria-label="Open navigation" className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden" onClick={() => setIsMenuOpen(true)} type="button"><Menu className="size-5" /></button>
           <div className="hidden min-w-0 items-center gap-2 text-sm md:flex">
-            <Link className="text-slate-400 hover:text-slate-700" href="/dashboard">Workspace</Link>
+            <Link className="text-slate-400 hover:text-slate-700" href={homeHref}>{role ? workspaceNames[role] : "Workspace"}</Link>
             <span className="text-slate-300">/</span>
             <span className="truncate font-medium text-slate-700">{activeItem?.label ?? "Campus operations"}</span>
           </div>

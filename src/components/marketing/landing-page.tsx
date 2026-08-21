@@ -3,6 +3,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
+  ArrowUpRight,
   BarChart3,
   BellRing,
   Bot,
@@ -12,6 +13,7 @@ import {
   ChevronRight,
   CircleCheck,
   Clock3,
+  ClipboardCheck,
   GraduationCap,
   LockKeyhole,
   Menu,
@@ -27,6 +29,7 @@ import Link from "next/link";
 
 import { BlurWords, Reveal } from "@/components/effects/motion-reveal";
 import { ShimmerLink } from "@/components/effects/shimmer-link";
+import { workspaceRoutes } from "@/config/workspace-routes";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -41,6 +44,7 @@ const agentEvents = [
 const capabilities = [
   {
     icon: GraduationCap,
+    href: workspaceRoutes.student.signIn,
     eyebrow: "Academic intelligence",
     title: "Keep every learner in view.",
     copy: "Attendance, performance, and interventions become one clear student-success workflow.",
@@ -67,6 +71,45 @@ const capabilities = [
     copy: "Specialised agents coordinate work, explain recommendations, and wait for approval when it matters.",
     className: "md:col-span-2",
   },
+];
+
+const workspaceJourneys = [
+  {
+    accent: "from-violet-500 to-indigo-500",
+    eyebrow: "For students",
+    title: "A clear day, from class to result.",
+    copy: "See today’s timetable, attendance health, courses, and campus updates without digging through an ERP.",
+    icon: GraduationCap,
+    href: workspaceRoutes.student.signIn,
+    stat: "One personal workspace",
+    badge: "Student workspace",
+  },
+  {
+    accent: "from-blue-500 to-cyan-500",
+    eyebrow: "For faculty",
+    title: "Teach with the full picture.",
+    copy: "Move from class schedules to attendance and student context in one focused teaching workspace.",
+    icon: ClipboardCheck,
+    href: workspaceRoutes.faculty.signIn,
+    stat: "Classes, learners, action",
+    badge: "Faculty workspace",
+  },
+  {
+    accent: "from-emerald-500 to-teal-500",
+    eyebrow: "For campus teams",
+    title: "Turn operations into momentum.",
+    copy: "Coordinate facilities, schedules, student success, and approvals with one shared operational view.",
+    icon: Building2,
+    href: workspaceRoutes.campus.signIn,
+    stat: "Connected decisions",
+    badge: "Campus command",
+  },
+];
+
+const outcomeMetrics = [
+  { label: "Focused workspaces", value: "03", detail: "Students, faculty, and teams" },
+  { label: "Connected service areas", value: "06", detail: "Academic and operational flows" },
+  { label: "Human approval", value: "100%", detail: "For sensitive AI actions" },
 ];
 
 function Brand() {
@@ -168,12 +211,13 @@ export function LandingPage() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between rounded-2xl border border-white/80 bg-white/80 px-4 shadow-[0_8px_40px_-24px_rgba(15,23,42,.28)] backdrop-blur-xl sm:px-5">
           <Brand />
           <nav aria-label="Marketing navigation" className="hidden items-center gap-1 rounded-full bg-slate-50 p-1 text-[13px] font-medium text-slate-600 md:flex">
+            <a className="rounded-full px-4 py-2 transition hover:bg-white hover:text-slate-950 hover:shadow-sm" href="#workspaces">Workspaces</a>
             <a className="rounded-full px-4 py-2 transition hover:bg-white hover:text-slate-950 hover:shadow-sm" href="#platform">Platform</a>
-            <a className="rounded-full px-4 py-2 transition hover:bg-white hover:text-slate-950 hover:shadow-sm" href="#agents">AI agents</a>
+            <a className="rounded-full px-4 py-2 transition hover:bg-white hover:text-slate-950 hover:shadow-sm" href="#agents">AI coordination</a>
             <a className="rounded-full px-4 py-2 transition hover:bg-white hover:text-slate-950 hover:shadow-sm" href="#trust">Trust</a>
           </nav>
           <div className="hidden items-center gap-2 sm:flex">
-            <Link className="rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950" href="/sign-in">Sign in</Link>
+            <Link className="rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950" href="#workspaces">Choose portal</Link>
             <Link className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-slate-200 transition hover:-translate-y-0.5 hover:bg-slate-800" href="/sign-up">Open workspace <ArrowRight className="size-3.5" /></Link>
           </div>
           <details className="group relative sm:hidden">
@@ -182,9 +226,10 @@ export function LandingPage() {
               <X className="hidden size-4 group-open:block" />
             </summary>
             <nav aria-label="Mobile navigation" className="absolute right-0 top-12 grid w-[min(18rem,calc(100vw-2rem))] gap-1 rounded-2xl border border-slate-200 bg-white p-2 text-sm font-medium text-slate-700 shadow-xl">
+              <a className="rounded-xl px-4 py-3 hover:bg-slate-50" href="#workspaces">Workspaces</a>
               <a className="rounded-xl px-4 py-3 hover:bg-slate-50" href="#platform">Platform</a>
-              <a className="rounded-xl px-4 py-3 hover:bg-slate-50" href="#agents">AI agents</a>
-              <Link className="rounded-xl px-4 py-3 hover:bg-slate-50" href="/sign-in">Sign in</Link>
+              <a className="rounded-xl px-4 py-3 hover:bg-slate-50" href="#agents">AI coordination</a>
+              <Link className="rounded-xl px-4 py-3 hover:bg-slate-50" href="#workspaces">Choose portal</Link>
               <Link className="rounded-xl bg-slate-950 px-4 py-3 text-center text-white" href="/sign-up">Open workspace</Link>
             </nav>
           </details>
@@ -197,23 +242,23 @@ export function LandingPage() {
         <div className="relative mx-auto grid max-w-7xl items-center gap-16 lg:grid-cols-[.92fr_1.08fr] lg:gap-12">
           <div className="max-w-2xl">
             <Reveal distance={12}>
-              <span className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white/90 px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm backdrop-blur">
-                <Sparkles className="size-3.5" /> The intelligent campus operating system
+              <span className="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white/90 px-3 py-1.5 text-xs font-semibold text-indigo-700 shadow-sm backdrop-blur">
+                <Sparkles className="size-3.5" /> Built for the people who run a modern campus
               </span>
             </Reveal>
             <h1 className="mt-7 text-balance text-[3.35rem] font-semibold leading-[.98] tracking-[-0.065em] text-slate-950 sm:text-6xl lg:text-[4.65rem]">
-              <BlurWords text="Your campus," />
-              {" "}<span className="mt-1 block"><BlurWords className="animated-gradient-text" text="moving as one." /></span>
+              <BlurWords text="Unified campus management," />
+              {" "}<span className="mt-1 block"><BlurWords className="animated-gradient-text" text="made human." /></span>
             </h1>
             <Reveal delay={0.24}>
-              <p className="mt-7 max-w-xl text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">Aventra connects academic delivery, student success, facilities, and specialised AI agents in one calm operational workspace.</p>
+              <p className="mt-7 max-w-xl text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">Aventra gives every student, educator, and campus team a focused place to get work done—while intelligent coordination keeps the whole campus moving forward.</p>
             </Reveal>
             <Reveal className="mt-8 flex flex-col gap-3 sm:flex-row" delay={0.31}>
               <ShimmerLink className="px-5 py-3 text-sm font-semibold" href="/sign-up">Start your campus <ArrowRight className="size-4" /></ShimmerLink>
-              <Link className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white/90 px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md" href="/sign-in">Sign in to workspace</Link>
+              <Link className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white/90 px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md" href="#workspaces">Choose your portal</Link>
             </Reveal>
             <Reveal className="mt-7 flex flex-wrap gap-x-5 gap-y-2 text-xs font-medium text-slate-500" delay={0.38}>
-              {['Human approval built in', 'Role-aware access', 'One connected data layer'].map((item) => <span className="flex items-center gap-1.5" key={item}><Check className="size-3.5 text-emerald-600" />{item}</span>)}
+              {['Simple for every role', 'Human approval built in', 'One connected data layer'].map((item) => <span className="flex items-center gap-1.5" key={item}><Check className="size-3.5 text-emerald-600" />{item}</span>)}
             </Reveal>
           </div>
           <Reveal delay={0.18} distance={28}><ProductPreview /></Reveal>
@@ -232,11 +277,53 @@ export function LandingPage() {
         </div>
       </section>
 
+      <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:py-28" id="workspaces">
+        <Reveal className="mx-auto max-w-3xl text-center">
+          <p className="text-sm font-semibold text-indigo-600">One product. Three clear experiences.</p>
+          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-[-0.045em] text-slate-950 sm:text-5xl">Every person gets a workspace that feels made for them.</h2>
+          <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-slate-600">The same trusted campus data, presented in the right level of detail for the work each person needs to do.</p>
+        </Reveal>
+        <div className="mt-12 grid gap-5 lg:grid-cols-3">
+          {workspaceJourneys.map(({ accent, badge, copy, eyebrow, href, icon: Icon, stat, title }, index) => (
+            <Reveal delay={index * 0.08} key={eyebrow}>
+              <Link className="block h-full" href={href}>
+              <motion.article className="group relative h-full overflow-hidden rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_22px_70px_-50px_rgba(15,23,42,.6)] sm:p-7" transition={{ duration: 0.25, ease }} whileHover={{ y: -6 }}>
+                <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${accent}`} />
+                <div className="flex items-start justify-between gap-4">
+                  <span className={`grid size-12 place-items-center rounded-2xl bg-gradient-to-br ${accent} text-white shadow-lg`}><Icon className="size-5" /></span>
+                  <span className="rounded-full border border-slate-100 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-500">{badge}</span>
+                </div>
+                <p className="mt-8 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">{eyebrow}</p>
+                <h3 className="mt-3 text-2xl font-semibold tracking-[-0.035em] text-slate-950">{title}</h3>
+                <p className="mt-3 text-sm leading-6 text-slate-600">{copy}</p>
+                <div className="mt-7 flex items-center justify-between border-t border-slate-100 pt-4 text-xs font-semibold text-slate-600"><span>{stat}</span><span className="flex items-center gap-1.5">Sign in <ArrowUpRight className="size-4 text-slate-400 transition group-hover:text-slate-950" /></span></div>
+              </motion.article>
+              </Link>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-5 pb-20 sm:px-8 lg:pb-28">
+        <Reveal>
+          <div className="grid overflow-hidden rounded-[28px] border border-slate-200 bg-slate-950 text-white md:grid-cols-3">
+            {outcomeMetrics.map(({ detail, label, value }, index) => (
+              <div className={`relative px-7 py-7 sm:px-9 ${index < outcomeMetrics.length - 1 ? "border-b border-white/10 md:border-b-0 md:border-r" : ""}`} key={label}>
+                <div className="absolute right-0 top-0 size-32 rounded-full bg-blue-500/10 blur-3xl" />
+                <p className="relative text-4xl font-semibold tracking-[-0.06em] text-white">{value}</p>
+                <p className="relative mt-2 text-sm font-semibold text-blue-200">{label}</p>
+                <p className="relative mt-1 text-xs text-slate-400">{detail}</p>
+              </div>
+            ))}
+          </div>
+        </Reveal>
+      </section>
+
       <section className="mx-auto max-w-7xl px-5 py-24 sm:px-8 lg:py-32" id="platform">
         <Reveal className="max-w-2xl">
           <p className="text-sm font-semibold text-blue-600">The campus, clearly organised</p>
-          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-[-0.045em] text-slate-950 sm:text-5xl">Everything your teams need. None of the operational noise.</h2>
-          <p className="mt-5 max-w-xl text-base leading-7 text-slate-600">A connected system turns fragmented campus activity into timely, accountable work.</p>
+          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-[-0.045em] text-slate-950 sm:text-5xl">Everything your campus needs. None of the ERP friction.</h2>
+          <p className="mt-5 max-w-xl text-base leading-7 text-slate-600">One connected platform turns fragmented campus activity into timely, accountable work—without making everyday users learn a complex system.</p>
         </Reveal>
         <div className="mt-12 grid gap-4 md:grid-cols-3">
           {capabilities.map(({ className, copy, eyebrow, icon: Icon, title }, index) => (

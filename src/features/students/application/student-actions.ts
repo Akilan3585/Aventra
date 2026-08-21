@@ -77,7 +77,7 @@ export async function createStudentAction(
 
     await client.from("audit_logs").insert({
       action: "student.created",
-      actor_profile_id: null,
+      actor_profile_id: access.profileId,
       entity_id: student.id,
       entity_type: "student",
       metadata: { actor_clerk_id: access.userId, student_number: parsed.data.studentNumber.toUpperCase() },

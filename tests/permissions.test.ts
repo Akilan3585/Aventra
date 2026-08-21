@@ -15,7 +15,11 @@ describe("campus role permissions", () => {
   });
 
   it("allows students to read their workspace without privileged mutations", () => {
-    expect(hasPermission("student", "reports:read")).toBe(true);
+    expect(hasPermission("student", "workspace:access")).toBe(true);
+    expect(hasPermission("student", "assignments:read")).toBe(true);
+    expect(hasPermission("student", "submissions:manage")).toBe(true);
+    expect(hasPermission("student", "assignments:manage")).toBe(false);
+    expect(hasPermission("student", "reports:read")).toBe(false);
     expect(hasPermission("student", "students:manage")).toBe(false);
     expect(hasPermission("student", "agents:execute")).toBe(false);
   });
