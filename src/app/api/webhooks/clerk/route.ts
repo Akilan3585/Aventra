@@ -2,6 +2,11 @@ import { verifyWebhook } from "@clerk/nextjs/webhooks";
 import { NextResponse, type NextRequest } from "next/server";
 
 import {
+  isMembershipStatus,
+} from "@/server/auth/campus-access";
+import { syncClerkCampusAuthorization } from "@/server/auth/clerk-authorization-sync";
+import { isCampusRole } from "@/server/auth/permissions";
+import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
 } from "@/server/supabase/admin-client";
@@ -156,5 +161,37 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({ received: true });
+  const { data: synchronizedProfile, error: synchronizedProfileError } =
+    await client
+      .from("profiles")
+      .select("campus_role, membership_status")
+      .eq("id", profileId)
+      .single();
+  if (
+    synchronizedProfileError ||
+    !isCampusRole(synchronizedProfile.campus_role) ||
+    !isMembershipStatus(synchronizedProfile.membership_status)
+  ) {
+    return NextResponse.json(
+      { error: "The synchronized campus authorization is invalid." },
+      { status: 500 },
+    );
+  }
+
+  const privateMetadata = (event.data.private_metadata ?? {}) as Record<
+    string,
+    unknown
+  >;
+  const metadataMatches =
+    privateMetadata.campusRole === synchronizedProfile.campus_role &&
+    privateMetadata.campusMembershipStatus ===
+      synchronizedProfile.membership_status;
+  const clerkSync = await syncClerkCampusAuthorization({
+    role: synchronizedProfile.campus_role,
+    status: synchronizedProfile.membership_status,
+    syncMetadata: !metadataMatches,
+    userId: event.data.id,
+  });
+
+  return NextResponse.json({ authorizationSync: clerkSync, received: true });
 }

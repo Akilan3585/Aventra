@@ -1,6 +1,7 @@
 import { UserPlus } from "lucide-react";
 import Link from "next/link";
 
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { ClerkAuthForm } from "@/components/auth/clerk-auth-form";
 import { isClerkConfigured } from "@/server/auth/campus-access";
 
@@ -9,6 +10,7 @@ export default function SignUpPage() {
     <main className="grid min-h-screen place-items-center bg-slate-50 p-6">
       <div className="w-full max-w-md">
         <div className="mb-7 text-center">
+          <Link aria-label="Aventra AI home" className="mx-auto mb-6 inline-flex rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" href="/"><BrandLogo className="w-40" eager /></Link>
           <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-primary text-white shadow-lg shadow-blue-200"><UserPlus className="size-5" /></span>
           <h1 className="mt-4 text-2xl font-semibold tracking-tight text-slate-950">Create your campus account</h1>
           <p className="mt-2 text-sm text-slate-500">Campus permissions are assigned separately by an administrator.</p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { UserButton } from "@clerk/nextjs";
+import { OrganizationSwitcher, UserButton } from "@clerk/nextjs";
 import {
   Bell,
   ChevronDown,
@@ -15,6 +15,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { BrandLogo } from "@/components/brand/brand-logo";
 import {
   findNavigationItem,
   homeForRole,
@@ -51,6 +52,8 @@ export function AppShell({ children, role }: AppShellProps) {
   const clerkConfigured = Boolean(
     clerkPublishableKey && !clerkPublishableKey.includes("REPLACE_ME"),
   );
+  const organizationsEnabled =
+    process.env.NEXT_PUBLIC_CLERK_ORGANIZATIONS_ENABLED === "true";
   const activeItem = roleItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)) ?? findNavigationItem(pathname);
 
   const results = useMemo(() => {
@@ -92,13 +95,10 @@ export function AppShell({ children, role }: AppShellProps) {
           isMenuOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-100 px-5">
-          <Link className="flex items-center gap-3" href={homeHref}>
-            <span className="grid size-9 place-items-center rounded-xl bg-blue-600 text-sm font-bold text-white shadow-sm">A</span>
-            <span>
-              <span className="block text-sm font-semibold tracking-tight text-slate-950">Aventra AI</span>
-              <span className="block text-[11px] font-medium text-slate-500">{role ? workspaceNames[role] : "Smart Campus OS"}</span>
-            </span>
+        <div className="flex h-20 shrink-0 items-center justify-between border-b border-slate-100 px-5">
+          <Link className="min-w-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600" href={homeHref} aria-label="Aventra AI workspace home">
+            <BrandLogo className="w-[132px]" eager />
+            <span className="mt-0.5 block truncate text-[10px] font-semibold text-slate-500">{role ? workspaceNames[role] : "Smart Campus OS"}</span>
           </Link>
           <button aria-label="Close navigation" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:hidden" onClick={() => setIsMenuOpen(false)} type="button"><X className="size-5" /></button>
         </div>
@@ -174,6 +174,7 @@ export function AppShell({ children, role }: AppShellProps) {
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
             <button aria-label="Search workspace" className="rounded-xl p-2.5 text-slate-500 hover:bg-slate-100 md:hidden" onClick={() => setIsSearchOpen(true)} type="button"><Search className="size-5" /></button>
             <Link aria-label="Notifications" className="relative rounded-xl p-2.5 text-slate-500 hover:bg-slate-100" href="/notifications"><Bell className="size-5" /><span className="absolute right-2 top-2 size-1.5 rounded-full bg-blue-600" /></Link>
+            {clerkConfigured && organizationsEnabled ? <div className="hidden lg:block"><OrganizationSwitcher /></div> : null}
             {clerkConfigured ? <UserButton showName userProfileMode="modal" /> : <Link className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100" href="/sign-in"><LogIn className="size-4" /><span className="hidden sm:inline">Connect account</span></Link>}
           </div>
         </header>

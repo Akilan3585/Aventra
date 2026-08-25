@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requirePermission } from "@/server/auth/campus-access";
 import { facultyOwnsEnrollment } from "@/server/auth/academic-scope";
 import { createSupabaseAdminClient } from "@/server/supabase/admin-client";
+import { evaluateAttendanceEmailAlert } from "@/features/attendance/application/attendance-alert.service";
 import {
   canTransitionMaintenanceTicket,
   isFutureCampusDate,
@@ -66,8 +67,13 @@ export async function recordAttendanceAction(
       entity_type: "enrollment",
       metadata: { actor_clerk_id: access.userId, date: parsed.data.sessionDate, status: parsed.data.status },
     });
+    const alertOutcome = await evaluateAttendanceEmailAlert(parsed.data.enrollmentId);
     refreshOperations("/attendance", "/students");
-    return { message: "Attendance saved and the success signals were refreshed.", status: "success" };
+    let alertMessage = "";
+    if (alertOutcome === "failed") alertMessage = " The low-attendance email could not be delivered; its failed status was recorded for review.";
+    if (alertOutcome === "queued") alertMessage = " A low-attendance email was queued; add the Resend environment settings to enable delivery.";
+    if (alertOutcome === "sent") alertMessage = " The student was emailed because attendance is below 70%.";
+    return { message: `Attendance saved and the success signals were refreshed.${alertMessage}`, status: "success" };
   } catch {
     return errorState("Sign in with attendance-recording permission.");
   }

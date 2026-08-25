@@ -85,6 +85,13 @@ Authentication answers who the user is. Campus membership and permissions answer
 
 Authorization is enforced on the server. Hiding a navigation item or button is only a presentation decision and is never treated as a security boundary.
 
+Clerk and Supabase form a two-layer authorization boundary:
+
+- Clerk verifies the session and, when enabled, the active campus Organization, Organization Role, and custom Organization Permissions.
+- Supabase remains the authoritative campus directory for role, approval status, validity dates, and academic ownership scope.
+- Both layers must approve a protected operation when Clerk Organization permission enforcement is enabled.
+- Role changes made by campus administrators are mirrored into Clerk private metadata and can optionally synchronize the Clerk Organization membership.
+
 ### Portal flow
 
 1. The user selects Student, Faculty, or Campus on the public site.
@@ -240,6 +247,10 @@ CLERK_SECRET_KEY="sk_test_REPLACE_ME"
 CAMPUS_ADMIN_EMAILS="admin@your-campus.edu"
 NEXT_PUBLIC_CLERK_SIGN_IN_URL="/sign-in"
 NEXT_PUBLIC_CLERK_SIGN_UP_URL="/sign-up"
+NEXT_PUBLIC_CLERK_ORGANIZATIONS_ENABLED="false"
+CLERK_CAMPUS_ORGANIZATION_ID="org_REPLACE_ME"
+CLERK_SYNC_ORGANIZATION_MEMBERSHIPS="false"
+CLERK_ENFORCE_ORGANIZATION_PERMISSIONS="false"
 CLERK_WEBHOOK_SIGNING_SECRET="whsec_REPLACE_ME"
 
 # Supabase
@@ -279,6 +290,16 @@ In the Clerk dashboard:
 3. Subscribe to `user.created` and `user.updated`.
 4. Copy the webhook signing secret into `CLERK_WEBHOOK_SIGNING_SECRET`.
 5. Add initial administrator emails to `CAMPUS_ADMIN_EMAILS`.
+
+For Clerk Organizations:
+
+1. Create one Clerk Organization for the campus and copy its ID to `CLERK_CAMPUS_ORGANIZATION_ID`.
+2. Keep Clerk's built-in `org:admin` role for campus owners and administrators.
+3. Create the custom roles `org:faculty`, `org:student`, and `org:maintenance`.
+4. Create custom permissions matching the backend permission keys with the `org:` prefix, such as `org:students:read`, `org:attendance:record`, and `org:campus:manage`, then assign them according to the role matrix above.
+5. Set `NEXT_PUBLIC_CLERK_ORGANIZATIONS_ENABLED=true` to show the campus switcher.
+6. Set `CLERK_SYNC_ORGANIZATION_MEMBERSHIPS=true` after those roles exist.
+7. Set `CLERK_ENFORCE_ORGANIZATION_PERMISSIONS=true` only after all required custom permissions are assigned. Until then, Supabase authorization remains active by itself.
 
 For local webhook testing, expose the local application with a secure tunnel and use that HTTPS URL as the Clerk endpoint.
 

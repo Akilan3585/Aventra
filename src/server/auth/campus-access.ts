@@ -4,8 +4,10 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { cache } from "react";
 
 import {
+  clerkOrganizationPermissionByCampusPermission,
+  clerkOrganizationRoleMatchesCampusRole,
   hasPermission,
-  roles,
+  isCampusRole,
   type Permission,
   type Role,
 } from "@/server/auth/permissions";
@@ -24,6 +26,9 @@ export const membershipStatuses = [
 export type MembershipStatus = (typeof membershipStatuses)[number];
 export type CampusIdentityStatus =
   | MembershipStatus
+  | "organization-mismatch"
+  | "organization-required"
+  | "role-mismatch"
   | "unlinked"
   | "unverified-email";
 
@@ -41,15 +46,41 @@ export type CampusAccess = CampusIdentity & {
   status: "active";
 };
 
-function isRole(value: unknown): value is Role {
-  return typeof value === "string" && roles.includes(value as Role);
-}
-
-function isMembershipStatus(value: unknown): value is MembershipStatus {
+export function isMembershipStatus(value: unknown): value is MembershipStatus {
   return (
     typeof value === "string" &&
     membershipStatuses.includes(value as MembershipStatus)
   );
+}
+
+function configuredOrganizationId() {
+  const organizationId = process.env.CLERK_CAMPUS_ORGANIZATION_ID?.trim();
+  return organizationId && !organizationId.includes("REPLACE_ME")
+    ? organizationId
+    : null;
+}
+
+export function isClerkOrganizationConfigured() {
+  return Boolean(configuredOrganizationId());
+}
+
+function enforceClerkOrganizationPermissions() {
+  return process.env.CLERK_ENFORCE_ORGANIZATION_PERMISSIONS === "true";
+}
+
+function organizationAccessStatus(
+  role: Role,
+  organizationId: string | null | undefined,
+  organizationRole: string | null | undefined,
+): CampusIdentityStatus | null {
+  const requiredOrganizationId = configuredOrganizationId();
+  if (!requiredOrganizationId) return null;
+  if (!organizationId) return "organization-required";
+  if (organizationId !== requiredOrganizationId) return "organization-mismatch";
+  if (!clerkOrganizationRoleMatchesCampusRole(role, organizationRole)) {
+    return "role-mismatch";
+  }
+  return null;
 }
 
 function adminEmails() {
@@ -92,7 +123,7 @@ function effectiveMembershipStatus(profile: {
 const resolveCampusIdentity = async (): Promise<CampusIdentity | null> => {
   if (!isClerkConfigured()) return null;
 
-  const { userId } = await auth();
+  const { orgId, orgRole, userId } = await auth();
   if (!userId) return null;
 
   const user = await currentUser();
@@ -114,9 +145,17 @@ const resolveCampusIdentity = async (): Promise<CampusIdentity | null> => {
   // All normal role decisions come from the Supabase campus directory.
   const isBootstrapAdmin = adminEmails().has(email);
   if (!isSupabaseAdminConfigured()) {
-    return isBootstrapAdmin
-      ? { email, profileId: null, role: "super-admin", status: "active", userId }
-      : { email, profileId: null, role: null, status: "unlinked", userId };
+    if (!isBootstrapAdmin) {
+      return { email, profileId: null, role: null, status: "unlinked", userId };
+    }
+    return {
+      email,
+      profileId: null,
+      role: "super-admin",
+      status:
+        organizationAccessStatus("super-admin", orgId, orgRole) ?? "active",
+      userId,
+    };
   }
 
   const { data: profile, error } = await createSupabaseAdminClient()
@@ -128,9 +167,17 @@ const resolveCampusIdentity = async (): Promise<CampusIdentity | null> => {
     .maybeSingle();
 
   if (error || !profile) {
-    return isBootstrapAdmin
-      ? { email, profileId: null, role: "super-admin", status: "active", userId }
-      : { email, profileId: null, role: null, status: "unlinked", userId };
+    if (!isBootstrapAdmin) {
+      return { email, profileId: null, role: null, status: "unlinked", userId };
+    }
+    return {
+      email,
+      profileId: null,
+      role: "super-admin",
+      status:
+        organizationAccessStatus("super-admin", orgId, orgRole) ?? "active",
+      userId,
+    };
   }
 
   if (profile.email.toLowerCase() !== email) {
@@ -151,12 +198,13 @@ const resolveCampusIdentity = async (): Promise<CampusIdentity | null> => {
       email,
       profileId: profile.id,
       role: "super-admin",
-      status: "active",
+      status:
+        organizationAccessStatus("super-admin", orgId, orgRole) ?? "active",
       userId,
     };
   }
 
-  if (!isRole(profile.campus_role)) {
+  if (!isCampusRole(profile.campus_role)) {
     return {
       email,
       profileId: profile.id,
@@ -166,11 +214,15 @@ const resolveCampusIdentity = async (): Promise<CampusIdentity | null> => {
     };
   }
 
+  const membershipStatus = effectiveMembershipStatus(profile);
   return {
     email,
     profileId: profile.id,
     role: profile.campus_role,
-    status: effectiveMembershipStatus(profile),
+    status:
+      membershipStatus === "active"
+        ? organizationAccessStatus(profile.campus_role, orgId, orgRole) ?? "active"
+        : membershipStatus,
     userId,
   };
 };
@@ -194,6 +246,13 @@ export async function requirePermission(permission: Permission) {
   }
   if (!hasPermission(identity.role, permission)) {
     throw new Error("PERMISSION_DENIED");
+  }
+  if (isClerkOrganizationConfigured() && enforceClerkOrganizationPermissions()) {
+    const { has } = await auth();
+    const clerkPermission = clerkOrganizationPermissionByCampusPermission[permission];
+    if (!has({ permission: clerkPermission })) {
+      throw new Error("CLERK_PERMISSION_DENIED");
+    }
   }
 
   return { ...identity, role: identity.role, status: "active" } satisfies CampusAccess;

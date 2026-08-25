@@ -3,6 +3,7 @@ import { Building2, ChevronDown, ClipboardCheck, GraduationCap, ShieldCheck } fr
 import Link from "next/link";
 
 import { ClerkAuthForm } from "@/components/auth/clerk-auth-form";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { workspaceRoutes, type WorkspaceRouteKey } from "@/config/workspace-routes";
 import { isClerkConfigured } from "@/server/auth/campus-access";
 
@@ -52,7 +53,7 @@ export function PortalSignIn({ portal }: { portal: WorkspaceRouteKey }) {
     <section className="relative hidden overflow-hidden bg-slate-950 p-12 text-white lg:flex lg:flex-col lg:justify-between">
       <div className="absolute inset-0 opacity-25 [background-image:radial-gradient(rgba(148,163,184,.45)_1px,transparent_1px)] [background-size:28px_28px]" />
       <div className={`absolute -right-20 top-24 size-80 rounded-full bg-gradient-to-br ${selected.accent} opacity-25 blur-3xl`} />
-      <Link className="relative flex items-center gap-3 text-sm font-semibold" href="/"><span className="grid size-10 place-items-center rounded-[14px] bg-white text-slate-950">A</span>Aventra AI</Link>
+      <Link aria-label="Aventra AI home" className="relative self-start rounded-2xl bg-white p-2 shadow-xl" href="/"><BrandLogo className="w-44" eager /></Link>
       <div className="relative max-w-lg">
         <span className={`grid size-14 place-items-center rounded-2xl bg-gradient-to-br ${selected.accent} shadow-xl`}><SelectedIcon className="size-6" /></span>
         <p className="mt-8 text-sm font-semibold text-blue-300">{selected.eyebrow}</p>
@@ -64,7 +65,7 @@ export function PortalSignIn({ portal }: { portal: WorkspaceRouteKey }) {
 
     <section className="grid place-items-center py-6 lg:bg-white">
       <div className="w-full max-w-lg">
-        <Link className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-950" href="/">← Aventra AI</Link>
+        <Link aria-label="Return to Aventra AI home" className="mb-6 inline-flex rounded-xl border border-slate-200 bg-white p-2 shadow-sm transition hover:border-slate-300 hover:shadow" href="/"><BrandLogo className="w-32" eager /></Link>
         <div aria-label="Choose portal" className="grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
           {(Object.keys(portalDefinitions) as WorkspaceRouteKey[]).map((key) => {
             const item = portalDefinitions[key];

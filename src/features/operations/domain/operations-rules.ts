@@ -1,4 +1,5 @@
 export const campusPolicies = {
+  attendanceEmailAlertPercent: 70,
   attendanceWarningPercent: 75,
   criticalTicketHours: 4,
   highTicketHours: 12,

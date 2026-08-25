@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { BlurWords, Reveal } from "@/components/effects/motion-reveal";
 import { ShimmerLink } from "@/components/effects/shimmer-link";
 import { workspaceRoutes } from "@/config/workspace-routes";
@@ -112,14 +113,10 @@ const outcomeMetrics = [
   { label: "Human approval", value: "100%", detail: "For sensitive AI actions" },
 ];
 
-function Brand() {
+function Brand({ eager = false }: { eager?: boolean }) {
   return (
-    <Link className="group flex items-center gap-3" href="/" aria-label="Aventra AI home">
-      <span className="relative grid size-10 place-items-center overflow-hidden rounded-[14px] bg-slate-950 text-sm font-bold text-white shadow-[0_10px_25px_-12px_rgba(15,23,42,.7)]">
-        <span className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(96,165,250,.8),transparent_45%)]" />
-        <span className="relative">A</span>
-      </span>
-      <span className="text-[15px] font-semibold tracking-[-0.02em] text-slate-950">Aventra AI</span>
+    <Link className="group block shrink-0 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600" href="/" aria-label="Aventra AI home">
+      <BrandLogo className="w-[126px] transition duration-200 group-hover:opacity-90 sm:w-[142px]" eager={eager} />
     </Link>
   );
 }
@@ -209,7 +206,7 @@ export function LandingPage() {
     <main className="overflow-hidden bg-[#fbfcfe] text-slate-950">
       <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-5">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between rounded-2xl border border-white/80 bg-white/80 px-4 shadow-[0_8px_40px_-24px_rgba(15,23,42,.28)] backdrop-blur-xl sm:px-5">
-          <Brand />
+          <Brand eager />
           <nav aria-label="Marketing navigation" className="hidden items-center gap-1 rounded-full bg-slate-50 p-1 text-[13px] font-medium text-slate-600 md:flex">
             <a className="rounded-full px-4 py-2 transition hover:bg-white hover:text-slate-950 hover:shadow-sm" href="#workspaces">Workspaces</a>
             <a className="rounded-full px-4 py-2 transition hover:bg-white hover:text-slate-950 hover:shadow-sm" href="#platform">Platform</a>

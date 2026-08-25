@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { resolveActorProfileId } from "@/features/administration/infrastructure/administration.repository";
 import { requirePermission } from "@/server/auth/campus-access";
+import { syncClerkCampusAuthorization } from "@/server/auth/clerk-authorization-sync";
 import { createSupabaseAdminClient } from "@/server/supabase/admin-client";
 import { membershipStatuses } from "@/server/auth/campus-access";
 import { roles } from "@/server/auth/permissions";
@@ -241,7 +242,7 @@ export async function updateCampusMembershipAction(formData: FormData) {
   const client = createSupabaseAdminClient();
   const { data: target } = await client
     .from("profiles")
-    .select("campus_role")
+    .select("campus_role, clerk_user_id")
     .eq("id", parsed.data.profileId)
     .maybeSingle();
 
@@ -266,8 +267,17 @@ export async function updateCampusMembershipAction(formData: FormData) {
     .eq("id", parsed.data.profileId);
 
   if (!error) {
+    const clerkSync = target?.clerk_user_id
+      ? await syncClerkCampusAuthorization({
+          role: parsed.data.campusRole,
+          status: parsed.data.membershipStatus,
+          userId: target.clerk_user_id,
+        })
+      : { metadata: "skipped", organization: "skipped" };
     await audit(access.userId, "campus_membership.updated", "profile", parsed.data.profileId, {
       campus_role: parsed.data.campusRole,
+      clerk_metadata_sync: clerkSync.metadata,
+      clerk_organization_sync: clerkSync.organization,
       membership_status: parsed.data.membershipStatus,
     });
   }

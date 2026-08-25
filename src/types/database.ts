@@ -246,6 +246,76 @@ export type Database = {
           },
         ]
       }
+      attendance_alerts: {
+        Row: {
+          created_at: string
+          enrollment_id: string
+          id: string
+          last_attempted_at: string | null
+          notification_id: string | null
+          observed_percent: number
+          provider_message_id: string | null
+          recipient_profile_id: string
+          resolved_at: string | null
+          sent_at: string | null
+          status: Database["public"]["Enums"]["notification_status"]
+          threshold_percent: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enrollment_id: string
+          id?: string
+          last_attempted_at?: string | null
+          notification_id?: string | null
+          observed_percent: number
+          provider_message_id?: string | null
+          recipient_profile_id: string
+          resolved_at?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["notification_status"]
+          threshold_percent: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enrollment_id?: string
+          id?: string
+          last_attempted_at?: string | null
+          notification_id?: string | null
+          observed_percent?: number
+          provider_message_id?: string | null
+          recipient_profile_id?: string
+          resolved_at?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["notification_status"]
+          threshold_percent?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_alerts_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_alerts_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_alerts_recipient_profile_id_fkey"
+            columns: ["recipient_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendance_records: {
         Row: {
           enrollment_id: string
