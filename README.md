@@ -95,13 +95,18 @@ Clerk and Supabase form a two-layer authorization boundary:
 ### Portal flow
 
 1. The user selects Student, Faculty, or Campus on the public site.
-2. Clerk authenticates the user through the matching sign-in route.
-3. The application resolves the Clerk identity to an internal Supabase profile.
-4. Membership status, role, and requested portal are validated.
-5. The user is routed to the correct role workspace or an explicit pending/denied state.
-6. Every protected read and mutation performs a server-side permission check.
+2. A new student creates an identity at `/student/sign-up` and completes the academic profile at `/student/onboarding`.
+3. Clerk authenticates the user through the matching sign-in route and supplies the verified primary email.
+4. The application resolves the Clerk identity to an internal Supabase profile.
+5. Student onboarding creates only a pending student record; it cannot self-assign a privileged role or activate membership.
+6. A campus administrator verifies the student number, department, and membership before activation.
+7. Membership status, role, and requested portal are validated.
+8. The user is routed to the correct role workspace or an explicit pending/denied state.
+9. Every protected read and mutation performs a server-side permission check.
 
 Faculty data is additionally scoped to assigned course offerings. Student pages are scoped to the signed-in student's own records.
+
+Faculty may approve pending student onboarding requests only within their assigned department. Campus administrators may review all departments. Every approval requires an identity-linked student record, activates only the student role, synchronizes Clerk authorization metadata, and creates an audit event.
 
 ## AI multi-agent system
 
@@ -189,6 +194,9 @@ docs/
 | `/sign-in` | Common portal chooser |
 | `/sign-up` | Clerk account creation |
 | `/student/sign-in` | Student portal authentication |
+| `/student/sign-up` | Student identity registration |
+| `/student/onboarding` | Verified student profile submission and approval status |
+| `/student-approvals` | Faculty and campus-team review of pending student onboarding |
 | `/faculty/sign-in` | Faculty portal authentication |
 | `/campus/sign-in` | Campus-team authentication |
 | `/app` | Post-authentication portal and membership verification |
@@ -296,7 +304,7 @@ For Clerk Organizations:
 1. Create one Clerk Organization for the campus and copy its ID to `CLERK_CAMPUS_ORGANIZATION_ID`.
 2. Keep Clerk's built-in `org:admin` role for campus owners and administrators.
 3. Create the custom roles `org:faculty`, `org:student`, and `org:maintenance`.
-4. Create custom permissions matching the backend permission keys with the `org:` prefix, such as `org:students:read`, `org:attendance:record`, and `org:campus:manage`, then assign them according to the role matrix above.
+4. Create custom permissions matching the backend permission keys with the `org:` prefix, such as `org:students:read`, `org:students:approve`, `org:attendance:record`, and `org:campus:manage`, then assign them according to the role matrix above.
 5. Set `NEXT_PUBLIC_CLERK_ORGANIZATIONS_ENABLED=true` to show the campus switcher.
 6. Set `CLERK_SYNC_ORGANIZATION_MEMBERSHIPS=true` after those roles exist.
 7. Set `CLERK_ENFORCE_ORGANIZATION_PERMISSIONS=true` only after all required custom permissions are assigned. Until then, Supabase authorization remains active by itself.

@@ -16,6 +16,7 @@ import {
   Settings,
   TrendingUp,
   UserRound,
+  UserCheck,
   UsersRound,
   Wrench,
 } from "lucide-react";
@@ -35,6 +36,7 @@ export const navigationGroups: readonly NavigationGroup[] = [
     label: "Academic ops",
     items: [
       { href: "/students", label: "Students", icon: GraduationCap },
+      { href: "/student-approvals", label: "Student approvals", icon: UserCheck },
       { href: "/attendance", label: "Attendance", icon: ClipboardCheck },
       { href: "/assignments", label: "Assignments", icon: ClipboardList },
       { href: "/enrollments", label: "Enrollments", icon: BookOpen },
@@ -91,6 +93,7 @@ const facultyNavigation: readonly NavigationGroup[] = [
     { href: "/assignments", label: "Assignments", icon: ClipboardList },
     { href: "/schedules", label: "My timetable", icon: CalendarDays },
     { href: "/students", label: "My students", icon: GraduationCap },
+    { href: "/student-approvals", label: "Student approvals", icon: UserCheck },
     { href: "/courses", label: "Courses", icon: BookOpen },
   ] },
   { label: "Support", items: [
@@ -145,6 +148,7 @@ export const moduleKeywords: Record<string, string> = {
   "/performance": "results grades cgpa student success",
   "/schedules": "timetable classes conflicts allocation",
   "/students": "roster learners enrollment risk",
+  "/student-approvals": "pending student onboarding verification approval",
   "/enrollments": "registration sections students capacity",
   "/student-workspace": "student home classes timetable attendance results",
   "/faculty-workspace": "faculty teaching home classes attendance learners",

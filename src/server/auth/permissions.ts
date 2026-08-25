@@ -13,6 +13,7 @@ export const permissions = [
   "campus:manage",
   "students:read",
   "students:manage",
+  "students:approve",
   "attendance:record",
   "assignments:read",
   "assignments:manage",
@@ -51,6 +52,7 @@ export const rolePermissions: Readonly<Record<Role, readonly Permission[]>> = {
     "campus:manage",
     "students:read",
     "students:manage",
+    "students:approve",
     "attendance:record",
     "assignments:read",
     "assignments:manage",
@@ -66,6 +68,7 @@ export const rolePermissions: Readonly<Record<Role, readonly Permission[]>> = {
   faculty: [
     "workspace:access",
     "students:read",
+    "students:approve",
     "attendance:record",
     "assignments:read",
     "assignments:manage",

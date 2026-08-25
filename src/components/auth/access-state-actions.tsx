@@ -4,8 +4,12 @@ import { OrganizationSwitcher, SignOutButton } from "@clerk/nextjs";
 import Link from "next/link";
 
 export function AccessStateActions({
+  primaryHref = "/app",
+  primaryLabel = "Check again",
   showOrganizationSwitcher = false,
 }: {
+  primaryHref?: string;
+  primaryLabel?: string;
   showOrganizationSwitcher?: boolean;
 }) {
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
@@ -22,7 +26,7 @@ export function AccessStateActions({
         </div>
       ) : null}
       <div className="flex flex-wrap gap-3">
-        <Link className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white" href="/app">Check again</Link>
+        <Link className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white" href={primaryHref}>{primaryLabel}</Link>
         {clerkIsConfigured ? (
           <SignOutButton redirectUrl="/">
             <button className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700" type="button">Use another account</button>

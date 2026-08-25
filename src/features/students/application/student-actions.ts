@@ -3,13 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { departmentIdentifierSchema } from "@/features/students/domain/student-onboarding";
 import { requirePermission } from "@/server/auth/campus-access";
 import { createSupabaseAdminClient } from "@/server/supabase/admin-client";
 
 const currentYear = new Date().getFullYear();
 const createStudentSchema = z.object({
   admissionYear: z.coerce.number().int().min(2000).max(currentYear + 1),
-  departmentId: z.uuid(),
+  departmentId: departmentIdentifierSchema,
   displayName: z.string().trim().min(2).max(120),
   email: z.email().trim().toLowerCase(),
   semester: z.coerce.number().int().min(1).max(16),

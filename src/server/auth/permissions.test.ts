@@ -18,7 +18,14 @@ describe("campus role authorization", () => {
   it("allows faculty teaching actions without campus administration", () => {
     expect(hasPermission("faculty", "attendance:record")).toBe(true);
     expect(hasPermission("faculty", "assignments:manage")).toBe(true);
+    expect(hasPermission("faculty", "students:approve")).toBe(true);
     expect(hasPermission("faculty", "campus:manage")).toBe(false);
+  });
+
+  it("keeps student approval away from student and maintenance accounts", () => {
+    expect(hasPermission("student", "students:approve")).toBe(false);
+    expect(hasPermission("maintenance-staff", "students:approve")).toBe(false);
+    expect(hasPermission("admin", "students:approve")).toBe(true);
   });
 
   it("maps organization users to the campus administration audience", () => {

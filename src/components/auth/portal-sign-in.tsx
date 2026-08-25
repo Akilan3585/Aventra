@@ -47,6 +47,7 @@ export function PortalSignIn({ portal }: { portal: WorkspaceRouteKey }) {
   const selected = portalDefinitions[portal];
   const SelectedIcon = selected.icon;
   const route = workspaceRoutes[portal];
+  const signUpUrl = portal === "student" ? "/student/sign-up" : "/sign-up";
 
   return <main className="relative min-h-screen overflow-hidden bg-slate-50 px-5 py-8 sm:px-8 lg:grid lg:grid-cols-[.88fr_1.12fr] lg:p-0">
     <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${selected.accent}`} />
@@ -82,8 +83,8 @@ export function PortalSignIn({ portal }: { portal: WorkspaceRouteKey }) {
           <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-slate-950">Welcome back.</h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">Sign in with your verified college account for {selected.roleSummary.toLowerCase()}. Aventra will reject access if your directory role does not match this portal.</p>
         </div>
-        {isClerkConfigured() ? <ClerkAuthForm fallbackRedirectUrl={`/app?portal=${portal}`} mode="sign-in" path={route.signIn} signInUrl={route.signIn} /> : <div className="rounded-2xl border border-amber-200 bg-white p-6 text-sm leading-6 text-slate-600 shadow-sm">Clerk is not configured. Add the Clerk keys to <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">.env.local</code> and restart the app.</div>}
-        <p className="mt-6 text-center text-sm text-slate-500">Need access? <Link className="font-semibold text-primary hover:text-blue-700" href="/sign-up">Request a campus account</Link></p>
+        {isClerkConfigured() ? <ClerkAuthForm fallbackRedirectUrl={`/app?portal=${portal}`} mode="sign-in" path={route.signIn} signInUrl={route.signIn} signUpUrl={signUpUrl} /> : <div className="rounded-2xl border border-amber-200 bg-white p-6 text-sm leading-6 text-slate-600 shadow-sm">Clerk is not configured. Add the Clerk keys to <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">.env.local</code> and restart the app.</div>}
+        <p className="mt-6 text-center text-sm text-slate-500">{portal === "student" ? "New student?" : "Need access?"} <Link className="font-semibold text-primary hover:text-blue-700" href={signUpUrl}>{portal === "student" ? "Start student onboarding" : "Request a campus account"}</Link></p>
       </div>
     </section>
   </main>;
