@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sed -n *)",
+      "Bash(npx vitest run *)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx eslint .)",
+      "Bash(pnpm vitest run *)",
+      "Bash(pnpm typecheck *)",
+      "Bash(npm run lint)",
+      "Bash(pnpm lint *)",
+      "Bash(npm run typecheck)",
+      "Bash(npm test *)",
+      "Bash(pnpm test *)"
+    ]
+  }
+}
