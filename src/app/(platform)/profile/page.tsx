@@ -1,4 +1,5 @@
 import { BadgeCheck, CalendarClock, Mail, UserRound } from "lucide-react";
+import { redirect } from "next/navigation";
 
 import { OperationsHeader, OperationsMetrics, StatusPill, WorkspaceBanner } from "@/components/operations/operations-ui";
 import { Card } from "@/design-system/primitives/card";
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
   const access = await resolveWorkspaceAccess("workspace:access");
+  if (access.mode === "live" && access.role !== "student") redirect("/dashboard");
   const campusAccess = access.mode === "live" ? await getCampusAccess() : null;
   let profile = null;
   if (campusAccess) try { profile = await loadProfileWorkspace(campusAccess.userId); } catch { profile = null; }

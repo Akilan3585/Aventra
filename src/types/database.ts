@@ -153,6 +153,127 @@ export type Database = {
           },
         ]
       }
+      assignment_answers: {
+        Row: {
+          awarded_marks: number
+          created_at: string
+          id: string
+          is_correct: boolean
+          question_id: string
+          selected_option_ids: string[]
+          submission_id: string
+        }
+        Insert: {
+          awarded_marks?: number
+          created_at?: string
+          id?: string
+          is_correct?: boolean
+          question_id: string
+          selected_option_ids?: string[]
+          submission_id: string
+        }
+        Update: {
+          awarded_marks?: number
+          created_at?: string
+          id?: string
+          is_correct?: boolean
+          question_id?: string
+          selected_option_ids?: string[]
+          submission_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignment_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "assignment_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignment_answers_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "assignment_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assignment_question_options: {
+        Row: {
+          id: string
+          is_correct: boolean
+          label: string
+          position: number
+          question_id: string
+        }
+        Insert: {
+          id?: string
+          is_correct?: boolean
+          label: string
+          position: number
+          question_id: string
+        }
+        Update: {
+          id?: string
+          is_correct?: boolean
+          label?: string
+          position?: number
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignment_question_options_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "assignment_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assignment_questions: {
+        Row: {
+          allow_multiple: boolean
+          assignment_id: string
+          created_at: string
+          explanation: string | null
+          id: string
+          marks: number
+          position: number
+          prompt: string
+          updated_at: string
+        }
+        Insert: {
+          allow_multiple?: boolean
+          assignment_id: string
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          marks: number
+          position: number
+          prompt: string
+          updated_at?: string
+        }
+        Update: {
+          allow_multiple?: boolean
+          assignment_id?: string
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          marks?: number
+          position?: number
+          prompt?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignment_questions_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assignment_submissions: {
         Row: {
           assignment_id: string
@@ -162,6 +283,7 @@ export type Database = {
           graded_by_profile_id: string | null
           id: string
           score: number | null
+          started_at: string | null
           submitted_at: string | null
         }
         Insert: {
@@ -172,6 +294,7 @@ export type Database = {
           graded_by_profile_id?: string | null
           id?: string
           score?: number | null
+          started_at?: string | null
           submitted_at?: string | null
         }
         Update: {
@@ -182,6 +305,7 @@ export type Database = {
           graded_by_profile_id?: string | null
           id?: string
           score?: number | null
+          started_at?: string | null
           submitted_at?: string | null
         }
         Relationships: [
@@ -211,32 +335,63 @@ export type Database = {
       assignments: {
         Row: {
           created_at: string
+          created_by_profile_id: string | null
           due_at: string | null
           id: string
+          instructions: string | null
+          kind: Database["public"]["Enums"]["assignment_kind"]
           maximum_marks: number
           offering_id: string
+          published_at: string | null
+          show_results: boolean
+          shuffle_questions: boolean
+          status: Database["public"]["Enums"]["assignment_status"]
+          time_limit_minutes: number | null
           title: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          created_by_profile_id?: string | null
           due_at?: string | null
           id?: string
+          instructions?: string | null
+          kind?: Database["public"]["Enums"]["assignment_kind"]
           maximum_marks: number
           offering_id: string
+          published_at?: string | null
+          show_results?: boolean
+          shuffle_questions?: boolean
+          status?: Database["public"]["Enums"]["assignment_status"]
+          time_limit_minutes?: number | null
           title: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          created_by_profile_id?: string | null
           due_at?: string | null
           id?: string
+          instructions?: string | null
+          kind?: Database["public"]["Enums"]["assignment_kind"]
           maximum_marks?: number
           offering_id?: string
+          published_at?: string | null
+          show_results?: boolean
+          shuffle_questions?: boolean
+          status?: Database["public"]["Enums"]["assignment_status"]
+          time_limit_minutes?: number | null
           title?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "assignments_created_by_profile_id_fkey"
+            columns: ["created_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "assignments_offering_id_fkey"
             columns: ["offering_id"]
@@ -249,7 +404,7 @@ export type Database = {
       attendance_alerts: {
         Row: {
           created_at: string
-          enrollment_id: string
+          enrollment_id: string | null
           id: string
           last_attempted_at: string | null
           notification_id: string | null
@@ -259,12 +414,13 @@ export type Database = {
           resolved_at: string | null
           sent_at: string | null
           status: Database["public"]["Enums"]["notification_status"]
+          student_id: string
           threshold_percent: number
           updated_at: string
         }
         Insert: {
           created_at?: string
-          enrollment_id: string
+          enrollment_id?: string | null
           id?: string
           last_attempted_at?: string | null
           notification_id?: string | null
@@ -274,12 +430,13 @@ export type Database = {
           resolved_at?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["notification_status"]
+          student_id: string
           threshold_percent: number
           updated_at?: string
         }
         Update: {
           created_at?: string
-          enrollment_id?: string
+          enrollment_id?: string | null
           id?: string
           last_attempted_at?: string | null
           notification_id?: string | null
@@ -289,10 +446,18 @@ export type Database = {
           resolved_at?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["notification_status"]
+          student_id?: string
           threshold_percent?: number
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "attendance_alerts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "attendance_alerts_enrollment_id_fkey"
             columns: ["enrollment_id"]
@@ -318,28 +483,43 @@ export type Database = {
       }
       attendance_records: {
         Row: {
-          enrollment_id: string
+          enrollment_id: string | null
           id: string
           recorded_at: string
           recorded_by_profile_id: string | null
+          remarks: string | null
+          session: string
           session_date: string
           status: string
+          student_id: string
+          updated_at: string
+          updated_by_profile_id: string | null
         }
         Insert: {
-          enrollment_id: string
+          enrollment_id?: string | null
           id?: string
           recorded_at?: string
           recorded_by_profile_id?: string | null
+          remarks?: string | null
+          session?: string
           session_date: string
           status: string
+          student_id: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
         }
         Update: {
-          enrollment_id?: string
+          enrollment_id?: string | null
           id?: string
           recorded_at?: string
           recorded_by_profile_id?: string | null
+          remarks?: string | null
+          session?: string
           session_date?: string
           status?: string
+          student_id?: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
         }
         Relationships: [
           {
@@ -350,8 +530,75 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "attendance_records_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "attendance_records_recorded_by_profile_id_fkey"
             columns: ["recorded_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_records_updated_by_profile_id_fkey"
+            columns: ["updated_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_sheet_syncs: {
+        Row: {
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          offering_ids: string[]
+          records_synced: number
+          scope: string
+          sheets_updated: number
+          spreadsheet_id: string | null
+          started_at: string
+          status: string
+          trigger: string
+          triggered_by_profile_id: string | null
+        }
+        Insert: {
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          offering_ids?: string[]
+          records_synced?: number
+          scope?: string
+          sheets_updated?: number
+          spreadsheet_id?: string | null
+          started_at?: string
+          status?: string
+          trigger: string
+          triggered_by_profile_id?: string | null
+        }
+        Update: {
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          offering_ids?: string[]
+          records_synced?: number
+          scope?: string
+          sheets_updated?: number
+          spreadsheet_id?: string | null
+          started_at?: string
+          status?: string
+          trigger?: string
+          triggered_by_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_sheet_syncs_triggered_by_profile_id_fkey"
+            columns: ["triggered_by_profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -393,6 +640,121 @@ export type Database = {
           {
             foreignKeyName: "audit_logs_actor_profile_id_fkey"
             columns: ["actor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_material_folders: {
+        Row: {
+          created_at: string
+          created_by_profile_id: string | null
+          id: string
+          name: string
+          offering_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by_profile_id?: string | null
+          id?: string
+          name: string
+          offering_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by_profile_id?: string | null
+          id?: string
+          name?: string
+          offering_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_material_folders_created_by_profile_id_fkey"
+            columns: ["created_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_material_folders_offering_id_fkey"
+            columns: ["offering_id"]
+            isOneToOne: false
+            referencedRelation: "course_offerings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_materials: {
+        Row: {
+          content: string | null
+          created_at: string
+          file_name: string | null
+          file_path: string | null
+          file_size: number | null
+          folder_id: string | null
+          id: string
+          kind: Database["public"]["Enums"]["course_material_kind"]
+          offering_id: string
+          mime_type: string | null
+          published_by_profile_id: string | null
+          resource_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          file_name?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          folder_id?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["course_material_kind"]
+          offering_id: string
+          mime_type?: string | null
+          published_by_profile_id?: string | null
+          resource_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          file_name?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          folder_id?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["course_material_kind"]
+          offering_id?: string
+          mime_type?: string | null
+          published_by_profile_id?: string | null
+          resource_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_materials_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "course_material_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_materials_offering_id_fkey"
+            columns: ["offering_id"]
+            isOneToOne: false
+            referencedRelation: "course_offerings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_materials_published_by_profile_id_fkey"
+            columns: ["published_by_profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -548,53 +910,6 @@ export type Database = {
           },
         ]
       }
-      equipment: {
-        Row: {
-          asset_tag: string
-          category: string
-          created_at: string
-          id: string
-          installed_at: string | null
-          last_serviced_at: string | null
-          name: string
-          room_id: string
-          status: Database["public"]["Enums"]["equipment_status"]
-          updated_at: string
-        }
-        Insert: {
-          asset_tag: string
-          category: string
-          created_at?: string
-          id?: string
-          installed_at?: string | null
-          last_serviced_at?: string | null
-          name: string
-          room_id: string
-          status?: Database["public"]["Enums"]["equipment_status"]
-          updated_at?: string
-        }
-        Update: {
-          asset_tag?: string
-          category?: string
-          created_at?: string
-          id?: string
-          installed_at?: string | null
-          last_serviced_at?: string | null
-          name?: string
-          room_id?: string
-          status?: Database["public"]["Enums"]["equipment_status"]
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "equipment_room_id_fkey"
-            columns: ["room_id"]
-            isOneToOne: false
-            referencedRelation: "rooms"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       faculty_members: {
         Row: {
           created_at: string
@@ -681,83 +996,6 @@ export type Database = {
             columns: ["recorded_by_profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      maintenance_tickets: {
-        Row: {
-          assigned_to_profile_id: string | null
-          created_at: string
-          description: string
-          equipment_id: string | null
-          id: string
-          opened_at: string
-          priority: Database["public"]["Enums"]["ticket_priority"]
-          reported_by_profile_id: string | null
-          resolved_at: string | null
-          room_id: string
-          status: Database["public"]["Enums"]["ticket_status"]
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          assigned_to_profile_id?: string | null
-          created_at?: string
-          description: string
-          equipment_id?: string | null
-          id?: string
-          opened_at?: string
-          priority?: Database["public"]["Enums"]["ticket_priority"]
-          reported_by_profile_id?: string | null
-          resolved_at?: string | null
-          room_id: string
-          status?: Database["public"]["Enums"]["ticket_status"]
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          assigned_to_profile_id?: string | null
-          created_at?: string
-          description?: string
-          equipment_id?: string | null
-          id?: string
-          opened_at?: string
-          priority?: Database["public"]["Enums"]["ticket_priority"]
-          reported_by_profile_id?: string | null
-          resolved_at?: string | null
-          room_id?: string
-          status?: Database["public"]["Enums"]["ticket_status"]
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "maintenance_tickets_assigned_to_profile_id_fkey"
-            columns: ["assigned_to_profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "maintenance_tickets_equipment_id_fkey"
-            columns: ["equipment_id"]
-            isOneToOne: false
-            referencedRelation: "equipment"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "maintenance_tickets_reported_by_profile_id_fkey"
-            columns: ["reported_by_profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "maintenance_tickets_room_id_fkey"
-            columns: ["room_id"]
-            isOneToOne: false
-            referencedRelation: "rooms"
             referencedColumns: ["id"]
           },
         ]
@@ -994,6 +1232,66 @@ export type Database = {
           },
         ]
       }
+      student_platform_profiles: {
+        Row: {
+          activity_count: number | null
+          created_at: string
+          handle: string
+          id: string
+          platform: Database["public"]["Enums"]["coding_platform"]
+          profile_url: string
+          recorded_at: string
+          recorded_by_profile_id: string | null
+          score: number
+          student_id: string
+          tier: string | null
+          updated_at: string
+        }
+        Insert: {
+          activity_count?: number | null
+          created_at?: string
+          handle: string
+          id?: string
+          platform: Database["public"]["Enums"]["coding_platform"]
+          profile_url: string
+          recorded_at?: string
+          recorded_by_profile_id?: string | null
+          score?: number
+          student_id: string
+          tier?: string | null
+          updated_at?: string
+        }
+        Update: {
+          activity_count?: number | null
+          created_at?: string
+          handle?: string
+          id?: string
+          platform?: Database["public"]["Enums"]["coding_platform"]
+          profile_url?: string
+          recorded_at?: string
+          recorded_by_profile_id?: string | null
+          score?: number
+          student_id?: string
+          tier?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_platform_profiles_recorded_by_profile_id_fkey"
+            columns: ["recorded_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_platform_profiles_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           admission_year: number
@@ -1056,11 +1354,12 @@ export type Database = {
         | "completed"
         | "failed"
         | "cancelled"
-      equipment_status: "operational" | "degraded" | "offline" | "retired"
+      assignment_kind: "coursework" | "quiz"
+      assignment_status: "draft" | "published" | "closed"
+      coding_platform: "linkedin" | "hackerrank" | "codechef" | "leetcode" | "github"
+      course_material_kind: "notes" | "study-material" | "link" | "document"
       notification_status: "queued" | "sent" | "failed" | "read"
       room_kind: "classroom" | "laboratory"
-      ticket_priority: "low" | "medium" | "high" | "critical"
-      ticket_status: "open" | "assigned" | "in_progress" | "resolved" | "closed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1195,11 +1494,12 @@ export const Constants = {
         "failed",
         "cancelled",
       ],
-      equipment_status: ["operational", "degraded", "offline", "retired"],
+      assignment_kind: ["coursework", "quiz"],
+      assignment_status: ["draft", "published", "closed"],
+      coding_platform: ["linkedin", "hackerrank", "codechef", "leetcode", "github"],
+      course_material_kind: ["notes", "study-material", "link", "document"],
       notification_status: ["queued", "sent", "failed", "read"],
       room_kind: ["classroom", "laboratory"],
-      ticket_priority: ["low", "medium", "high", "critical"],
-      ticket_status: ["open", "assigned", "in_progress", "resolved", "closed"],
     },
   },
 } as const

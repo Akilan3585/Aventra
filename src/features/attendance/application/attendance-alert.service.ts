@@ -1,6 +1,6 @@
 import "server-only";
 
-import { calculateAttendanceRate, isBelowAttendanceThreshold } from "@/features/attendance/domain/attendance-rules";
+import { calculateAttendanceRate, isAttendanceStatus, isBelowAttendanceThreshold } from "@/features/attendance/domain/attendance-rules";
 import { campusPolicies } from "@/features/operations/domain/operations-rules";
 import { sendAttendanceAlertEmail } from "@/server/email/resend";
 import { createSupabaseAdminClient } from "@/server/supabase/admin-client";
@@ -13,51 +13,47 @@ export type AttendanceAlertOutcome =
   | "recipient-missing"
   | "sent";
 
-export async function evaluateAttendanceEmailAlert(enrollmentId: string): Promise<AttendanceAlertOutcome> {
+const alertContext = "Overall attendance";
+
+/**
+ * Evaluates a student's overall attendance after a save. Opens (and emails) one
+ * alert per student while the rate is below the policy, and resolves it once
+ * the rate recovers.
+ */
+export async function evaluateAttendanceEmailAlert(studentId: string): Promise<AttendanceAlertOutcome> {
   const client = createSupabaseAdminClient();
   const threshold = campusPolicies.attendanceEmailAlertPercent;
-  const [recordsResult, enrollmentResult] = await Promise.all([
-    client.from("attendance_records").select("status").eq("enrollment_id", enrollmentId),
-    client.from("enrollments").select(`
-      id,
-      students (
-        student_number,
-        profiles (id, display_name, email)
-      ),
-      course_offerings (
-        section,
-        courses (code, title)
-      )
-    `).eq("id", enrollmentId).maybeSingle(),
+  const [recordsResult, studentResult] = await Promise.all([
+    client.from("attendance_records").select("status").eq("student_id", studentId),
+    client.from("students").select("id, student_number, profiles (id, display_name, email)").eq("id", studentId).maybeSingle(),
   ]);
 
-  if (recordsResult.error || enrollmentResult.error || !enrollmentResult.data) return "failed";
-  const rate = calculateAttendanceRate(recordsResult.data.map((record) => record.status as "present" | "absent" | "late" | "excused"));
+  if (recordsResult.error || studentResult.error || !studentResult.data) return "failed";
+  const rate = calculateAttendanceRate(recordsResult.data.map((record) => record.status).filter(isAttendanceStatus));
 
   if (!isBelowAttendanceThreshold(rate, threshold)) {
     const { error } = await client
       .from("attendance_alerts")
       .update({ resolved_at: new Date().toISOString(), observed_percent: rate ?? 0 })
-      .eq("enrollment_id", enrollmentId)
+      .eq("student_id", studentId)
       .is("resolved_at", null);
     return error ? "failed" : "not-required";
   }
 
-  const enrollment = enrollmentResult.data;
-  const profile = enrollment.students.profiles;
+  const profile = studentResult.data.profiles;
   if (!profile?.id || !profile.email) return "recipient-missing";
 
   let { data: alert, error: alertError } = await client.from("attendance_alerts").insert({
-    enrollment_id: enrollmentId,
     observed_percent: rate,
     recipient_profile_id: profile.id,
+    student_id: studentId,
     threshold_percent: threshold,
   }).select("id, notification_id, status").single();
 
   if (alertError?.code === "23505") {
     const existing = await client.from("attendance_alerts")
       .select("id, notification_id, status")
-      .eq("enrollment_id", enrollmentId)
+      .eq("student_id", studentId)
       .is("resolved_at", null)
       .maybeSingle();
     alert = existing.data;
@@ -70,8 +66,8 @@ export async function evaluateAttendanceEmailAlert(enrollmentId: string): Promis
 
   let notificationId = alert.notification_id;
   if (!notificationId) {
-    const subject = `Attendance alert: ${enrollment.course_offerings.courses.code} is below ${threshold}%`;
-    const body = `Your attendance for ${enrollment.course_offerings.courses.code} · ${enrollment.course_offerings.courses.title} is ${rate}%, below the ${threshold}% requirement. Please contact your faculty member or student-support team.`;
+    const subject = `Attendance alert: ${alertContext} is below ${threshold}%`;
+    const body = `Your overall attendance is ${rate}%, below the ${threshold}% requirement. Please contact your faculty member or student-support team.`;
     const notification = await client.from("notifications").insert({
       body,
       channel: "email",
@@ -88,8 +84,7 @@ export async function evaluateAttendanceEmailAlert(enrollmentId: string): Promis
     const delivery = await sendAttendanceAlertEmail({
       alertId: alert.id,
       attendanceRate: rate,
-      courseCode: enrollment.course_offerings.courses.code,
-      courseTitle: enrollment.course_offerings.courses.title,
+      context: alertContext,
       recipientEmail: profile.email,
       studentName: profile.display_name,
       threshold,

@@ -2,84 +2,59 @@ import "server-only";
 
 import { DatabaseQueryError } from "@/server/database/database-query-error";
 import { createSupabaseAdminClient } from "@/server/supabase/admin-client";
-import { intervalsOverlap, readinessLabel, readinessScore, ticketSlaHours } from "@/features/operations/domain/operations-rules";
-import { facultyEnrollmentIds, facultyOfferingIds } from "@/server/auth/academic-scope";
+import { intervalsOverlap } from "@/features/operations/domain/operations-rules";
+import { facultyOfferingIds, facultyStudentIds } from "@/server/auth/academic-scope";
 
-export type AttendanceStatus = "present" | "absent" | "late" | "excused";
+import { calculateAttendanceRate, isAttendanceStatus, type AttendanceStatus } from "@/features/attendance/domain/attendance-rules";
+
+export type { AttendanceStatus };
 
 export type AttendanceRow = {
-  course: string;
   id: string;
+  session: string;
   sessionDate: string;
   status: AttendanceStatus;
   studentName: string;
   studentNumber: string;
 };
 
-export type EnrollmentOption = {
-  course: string;
-  id: string;
-  student: string;
-};
-
 export type AttendanceWorkspace = {
   absent: number;
   attendanceRate: number | null;
-  enrollmentOptions: EnrollmentOption[];
   late: number;
+  onDuty: number;
   records: AttendanceRow[];
   todayRecorded: number;
 };
 
 export async function loadAttendanceWorkspace(facultyProfileId?: string): Promise<AttendanceWorkspace> {
   const client = createSupabaseAdminClient();
-  const enrollmentIds = facultyProfileId ? await facultyEnrollmentIds(facultyProfileId) : null;
-  if (enrollmentIds && !enrollmentIds.length) return { absent: 0, attendanceRate: null, enrollmentOptions: [], late: 0, records: [], todayRecorded: 0 };
+  const studentIds = facultyProfileId ? await facultyStudentIds(facultyProfileId) : null;
+  if (studentIds && !studentIds.length) return { absent: 0, attendanceRate: null, late: 0, onDuty: 0, records: [], todayRecorded: 0 };
   let recordsQuery = client.from("attendance_records").select(`
-      id, session_date, status,
-      enrollments (
-        id,
-        students (student_number, profiles (display_name)),
-        course_offerings (section, courses (code, title))
-      )
+      id, session_date, session, status,
+      students (student_number, profiles (display_name))
     `);
-  let enrollmentsQuery = client.from("enrollments").select(`
-      id,
-      students (student_number, profiles (display_name)),
-      course_offerings (section, courses (code, title))
-    `);
-  if (enrollmentIds) {
-    recordsQuery = recordsQuery.in("enrollment_id", enrollmentIds);
-    enrollmentsQuery = enrollmentsQuery.in("id", enrollmentIds);
-  }
-  const [recordsResult, enrollmentsResult] = await Promise.all([
-    recordsQuery.order("session_date", { ascending: false }).limit(150),
-    enrollmentsQuery.order("enrolled_at", { ascending: false }).limit(500),
-  ]);
+  if (studentIds) recordsQuery = recordsQuery.in("student_id", studentIds);
+  const recordsResult = await recordsQuery.order("session_date", { ascending: false }).order("session").limit(500);
   if (recordsResult.error) throw new DatabaseQueryError("load attendance", recordsResult.error.message);
-  if (enrollmentsResult.error) throw new DatabaseQueryError("load attendance enrollments", enrollmentsResult.error.message);
 
-  const records: AttendanceRow[] = recordsResult.data.map((record) => ({
-    course: `${record.enrollments.course_offerings.courses.code} · ${record.enrollments.course_offerings.section}`,
+  const records: AttendanceRow[] = recordsResult.data.flatMap((record) => isAttendanceStatus(record.status) ? [{
     id: record.id,
+    session: record.session,
     sessionDate: record.session_date,
-    status: record.status as AttendanceStatus,
-    studentName: record.enrollments.students.profiles?.display_name ?? "Profile not linked",
-    studentNumber: record.enrollments.students.student_number,
-  }));
-  const counted = records.filter((record) => record.status !== "excused");
-  const attended = counted.filter((record) => record.status === "present" || record.status === "late").length;
+    status: record.status,
+    studentName: record.students.profiles?.display_name ?? "Profile not linked",
+    studentNumber: record.students.student_number,
+  }] : []);
+  const attendanceRate = calculateAttendanceRate(records.map((record) => record.status));
   const today = new Date().toISOString().slice(0, 10);
 
   return {
     absent: records.filter((record) => record.status === "absent").length,
-    attendanceRate: counted.length ? Math.round((attended / counted.length) * 1000) / 10 : null,
-    enrollmentOptions: enrollmentsResult.data.map((enrollment) => ({
-      course: `${enrollment.course_offerings.courses.code} · ${enrollment.course_offerings.section}`,
-      id: enrollment.id,
-      student: `${enrollment.students.student_number} — ${enrollment.students.profiles?.display_name ?? "Profile not linked"}`,
-    })),
+    attendanceRate,
     late: records.filter((record) => record.status === "late").length,
+    onDuty: records.filter((record) => record.status === "od").length,
     records,
     todayRecorded: records.filter((record) => record.sessionDate === today).length,
   };
@@ -175,134 +150,9 @@ export async function loadScheduleWorkspace(facultyProfileId?: string): Promise<
   };
 }
 
-export type ClassroomRow = {
-  building: string;
-  capacity: number;
-  code: string;
-  degradedEquipment: number;
-  id: string;
-  kind: "classroom" | "laboratory";
-  name: string;
-  offlineEquipment: number;
-  openTickets: number;
-  readiness: "ready" | "attention" | "unavailable";
-  readinessScore: number;
-  totalEquipment: number;
-};
-
-export type ClassroomWorkspace = {
-  attentionRooms: number;
-  averageReadiness: number;
-  classrooms: ClassroomRow[];
-  laboratories: number;
-  totalCapacity: number;
-};
-
-export async function loadClassroomWorkspace(): Promise<ClassroomWorkspace> {
-  const client = createSupabaseAdminClient();
-  const [roomsResult, ticketsResult] = await Promise.all([
-    client.from("rooms").select("id, code, name, kind, building, capacity, is_active, equipment (id, status)").order("building").order("code"),
-    client.from("maintenance_tickets").select("room_id, status").in("status", ["open", "assigned", "in_progress"]),
-  ]);
-  if (roomsResult.error) throw new DatabaseQueryError("load classrooms", roomsResult.error.message);
-  if (ticketsResult.error) throw new DatabaseQueryError("load classroom tickets", ticketsResult.error.message);
-
-  const ticketCounts = new Map<string, number>();
-  ticketsResult.data.forEach(({ room_id }) => ticketCounts.set(room_id, (ticketCounts.get(room_id) ?? 0) + 1));
-  const classrooms: ClassroomRow[] = roomsResult.data.map((room) => {
-    const degradedEquipment = room.equipment.filter((item) => item.status === "degraded").length;
-    const offlineEquipment = room.equipment.filter((item) => item.status === "offline").length;
-    const openTickets = ticketCounts.get(room.id) ?? 0;
-    const score = readinessScore({ active: room.is_active, degraded: degradedEquipment, offline: offlineEquipment, openTickets });
-    return {
-      building: room.building,
-      capacity: room.capacity,
-      code: room.code,
-      degradedEquipment,
-      id: room.id,
-      kind: room.kind,
-      name: room.name,
-      offlineEquipment,
-      openTickets,
-      readiness: readinessLabel(score),
-      readinessScore: score,
-      totalEquipment: room.equipment.length,
-    };
-  });
-
-  return {
-    attentionRooms: classrooms.filter((room) => room.readiness !== "ready").length,
-    averageReadiness: classrooms.length ? Math.round(classrooms.reduce((sum, room) => sum + room.readinessScore, 0) / classrooms.length) : 0,
-    classrooms,
-    laboratories: classrooms.filter((room) => room.kind === "laboratory").length,
-    totalCapacity: classrooms.reduce((sum, room) => sum + room.capacity, 0),
-  };
-}
-
-export type MaintenanceRow = {
-  ageHours: number;
-  description: string;
-  equipment: string | null;
-  id: string;
-  isOverdue: boolean;
-  priority: "low" | "medium" | "high" | "critical";
-  room: string;
-  status: "open" | "assigned" | "in_progress" | "resolved" | "closed";
-  title: string;
-};
-
-export type MaintenanceWorkspace = {
-  critical: number;
-  equipmentOptions: Array<{ id: string; label: string; roomId: string }>;
-  inProgress: number;
-  overdue: number;
-  roomOptions: ScheduleOption[];
-  tickets: MaintenanceRow[];
-};
-
-export async function loadMaintenanceWorkspace(): Promise<MaintenanceWorkspace> {
-  const client = createSupabaseAdminClient();
-  const [ticketsResult, roomsResult, equipmentResult] = await Promise.all([
-    client.from("maintenance_tickets").select("id, title, description, priority, status, opened_at, rooms (code, name), equipment (asset_tag, name)").order("opened_at", { ascending: true }).limit(250),
-    client.from("rooms").select("id, code, name").order("code"),
-    client.from("equipment").select("id, room_id, asset_tag, name").order("asset_tag"),
-  ]);
-  if (ticketsResult.error) throw new DatabaseQueryError("load maintenance", ticketsResult.error.message);
-  if (roomsResult.error) throw new DatabaseQueryError("load maintenance rooms", roomsResult.error.message);
-  if (equipmentResult.error) throw new DatabaseQueryError("load maintenance equipment", equipmentResult.error.message);
-
-  const now = Date.now();
-  const tickets: MaintenanceRow[] = ticketsResult.data.map((ticket) => {
-    const ageHours = Math.max(0, Math.floor((now - new Date(ticket.opened_at).getTime()) / 3_600_000));
-    const active = !["resolved", "closed"].includes(ticket.status);
-    return {
-      ageHours,
-      description: ticket.description,
-      equipment: ticket.equipment ? `${ticket.equipment.asset_tag} · ${ticket.equipment.name}` : null,
-      id: ticket.id,
-      isOverdue: active && ageHours > ticketSlaHours(ticket.priority),
-      priority: ticket.priority,
-      room: `${ticket.rooms.code} · ${ticket.rooms.name}`,
-      status: ticket.status,
-      title: ticket.title,
-    };
-  });
-
-  return {
-    critical: tickets.filter((ticket) => ticket.priority === "critical" && !["resolved", "closed"].includes(ticket.status)).length,
-    equipmentOptions: equipmentResult.data.map((item) => ({ id: item.id, label: `${item.asset_tag} — ${item.name}`, roomId: item.room_id })),
-    inProgress: tickets.filter((ticket) => ticket.status === "in_progress").length,
-    overdue: tickets.filter((ticket) => ticket.isOverdue).length,
-    roomOptions: roomsResult.data.map((room) => ({ id: room.id, label: `${room.code} — ${room.name}` })),
-    tickets,
-  };
-}
-
 export type CampusDashboard = {
   activeAgentRuns: number;
   attendanceRate: number | null;
-  attentionRooms: number;
-  openTickets: number;
   scheduleConflicts: number;
   students: number;
   todaySessions: number;
@@ -310,8 +160,8 @@ export type CampusDashboard = {
 
 export async function loadCampusDashboard(): Promise<CampusDashboard> {
   const client = createSupabaseAdminClient();
-  const [attendance, schedules, classrooms, maintenance, studentsResult, runsResult] = await Promise.all([
-    loadAttendanceWorkspace(), loadScheduleWorkspace(), loadClassroomWorkspace(), loadMaintenanceWorkspace(),
+  const [attendance, schedules, studentsResult, runsResult] = await Promise.all([
+    loadAttendanceWorkspace(), loadScheduleWorkspace(),
     client.from("students").select("id", { count: "exact", head: true }),
     client.from("agent_runs").select("id", { count: "exact", head: true }).in("status", ["queued", "running"]),
   ]);
@@ -320,8 +170,6 @@ export async function loadCampusDashboard(): Promise<CampusDashboard> {
   return {
     activeAgentRuns: runsResult.count ?? 0,
     attendanceRate: attendance.attendanceRate,
-    attentionRooms: classrooms.attentionRooms,
-    openTickets: maintenance.tickets.filter((ticket) => !["resolved", "closed"].includes(ticket.status)).length,
     scheduleConflicts: schedules.conflicts,
     students: studentsResult.count ?? 0,
     todaySessions: schedules.todaySessions,

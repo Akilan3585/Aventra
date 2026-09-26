@@ -8,31 +8,6 @@ function assertQuery(error: { message: string } | null, operation: string) {
   if (error) throw new DatabaseQueryError(operation, error.message);
 }
 
-export async function loadDepartmentsWorkspace() {
-  const client = createSupabaseAdminClient();
-  const [departments, students, faculty, courses] = await Promise.all([
-    client.from("departments").select("id, code, name, created_at").order("code"),
-    client.from("students").select("department_id"),
-    client.from("faculty_members").select("department_id"),
-    client.from("courses").select("department_id"),
-  ]);
-  assertQuery(departments.error, "load departments");
-  assertQuery(students.error, "load department students");
-  assertQuery(faculty.error, "load department faculty");
-  assertQuery(courses.error, "load department courses");
-
-  const departmentRows = departments.data ?? [];
-  const studentRows = students.data ?? [];
-  const facultyRows = faculty.data ?? [];
-  const courseRows = courses.data ?? [];
-  return departmentRows.map((department) => ({
-    ...department,
-    courses: courseRows.filter((item) => item.department_id === department.id).length,
-    faculty: facultyRows.filter((item) => item.department_id === department.id).length,
-    students: studentRows.filter((item) => item.department_id === department.id).length,
-  }));
-}
-
 export async function loadCoursesWorkspace(facultyProfileId?: string) {
   const client = createSupabaseAdminClient();
   const scopedOfferingIds = facultyProfileId ? await facultyOfferingIds(facultyProfileId) : null;
@@ -59,36 +34,6 @@ export async function loadCoursesWorkspace(facultyProfileId?: string) {
   };
 }
 
-export async function loadFacultyWorkspace() {
-  const client = createSupabaseAdminClient();
-  const [members, departments, offerings] = await Promise.all([
-    client.from("faculty_members").select("id, employee_number, designation, department_id, profiles (clerk_user_id, display_name, email, membership_status), departments (code, name)").order("employee_number"),
-    client.from("departments").select("id, code, name").order("code"),
-    client.from("course_offerings").select("faculty_id"),
-  ]);
-  assertQuery(members.error, "load faculty");
-  assertQuery(departments.error, "load faculty departments");
-  assertQuery(offerings.error, "load faculty workload");
-  return {
-    departments: departments.data ?? [],
-    members: (members.data ?? []).map((member) => ({
-      ...member,
-      offerings: (offerings.data ?? []).filter((item) => item.faculty_id === member.id).length,
-    })),
-  };
-}
-
-export async function loadEquipmentWorkspace() {
-  const client = createSupabaseAdminClient();
-  const [equipment, rooms] = await Promise.all([
-    client.from("equipment").select("id, asset_tag, name, category, status, installed_at, last_serviced_at, room_id, rooms (code, name, building)").order("asset_tag"),
-    client.from("rooms").select("id, code, name, building").eq("is_active", true).order("code"),
-  ]);
-  assertQuery(equipment.error, "load equipment");
-  assertQuery(rooms.error, "load equipment rooms");
-  return { equipment: equipment.data ?? [], rooms: rooms.data ?? [] };
-}
-
 export async function loadPerformanceWorkspace() {
   const client = createSupabaseAdminClient();
   const [results, students] = await Promise.all([
@@ -100,23 +45,17 @@ export async function loadPerformanceWorkspace() {
   return { results: results.data ?? [], students: students.data ?? [] };
 }
 
-export async function loadNotificationsWorkspace(profileId: string, canManage: boolean) {
+/** Students only ever see their own messages; the query is scoped server-side. */
+export async function loadNotificationsWorkspace(profileId: string) {
   const client = createSupabaseAdminClient();
-  const notificationQuery = client.from("notifications").select("id, recipient_profile_id, channel, subject, body, status, sent_at, read_at, created_at, profiles (display_name, email)").order("created_at", { ascending: false }).limit(200);
-  const [notifications, profiles] = await Promise.all([
-    canManage ? notificationQuery : notificationQuery.eq("recipient_profile_id", profileId),
-    client.from("profiles").select("id, display_name, email, campus_role").order("display_name"),
-  ]);
-  assertQuery(notifications.error, "load notifications");
-  assertQuery(profiles.error, "load notification recipients");
-  return { notifications: notifications.data ?? [], profiles: profiles.data ?? [] };
-}
-
-export async function loadAuditWorkspace() {
-  const client = createSupabaseAdminClient();
-  const { data, error } = await client.from("audit_logs").select("id, action, entity_type, entity_id, correlation_id, metadata, created_at, profiles (display_name, email)").order("created_at", { ascending: false }).limit(300);
-  assertQuery(error, "load audit logs");
-  return data ?? [];
+  const { data, error } = await client
+    .from("notifications")
+    .select("id, recipient_profile_id, channel, subject, body, status, sent_at, read_at, created_at")
+    .eq("recipient_profile_id", profileId)
+    .order("created_at", { ascending: false })
+    .limit(200);
+  assertQuery(error, "load notifications");
+  return { notifications: data ?? [] };
 }
 
 export async function loadProfileWorkspace(clerkUserId: string) {
@@ -124,19 +63,6 @@ export async function loadProfileWorkspace(clerkUserId: string) {
   const { data, error } = await client.from("profiles").select("id, clerk_user_id, display_name, email, campus_role, created_at, updated_at").eq("clerk_user_id", clerkUserId).maybeSingle();
   assertQuery(error, "load campus profile");
   return data;
-}
-
-export async function loadCampusMemberships() {
-  const client = createSupabaseAdminClient();
-  const { data, error } = await client
-    .from("profiles")
-    .select(
-      "id, clerk_user_id, display_name, email, campus_role, membership_status, valid_from, valid_until, approved_at, updated_at",
-    )
-    .order("membership_status")
-    .order("updated_at", { ascending: false });
-  assertQuery(error, "load campus memberships");
-  return data ?? [];
 }
 
 export async function resolveActorProfileId(clerkUserId: string) {

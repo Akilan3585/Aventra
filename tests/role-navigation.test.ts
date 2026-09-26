@@ -8,21 +8,29 @@ const linksFor = (role: Parameters<typeof navigationForRole>[0]) =>
 describe("role-aware workspace navigation", () => {
   it("keeps the student experience focused on personal work", () => {
     expect(homeForRole("student")).toBe("/student-workspace");
-    expect(linksFor("student")).toEqual(["/student-workspace", "/assignments", "/notifications", "/profile"]);
+    expect(linksFor("student")).toEqual(["/student-workspace", "/assignments", "/courses", "/notifications", "/profile"]);
     expect(linksFor("student")).not.toContain("/settings");
   });
 
-  it("gives faculty teaching tools without campus administration", () => {
-    expect(homeForRole("faculty")).toBe("/faculty-workspace");
+  it("routes faculty through the campus console", () => {
+    expect(homeForRole("faculty")).toBe("/dashboard");
     expect(linksFor("faculty")).toContain("/attendance");
     expect(linksFor("faculty")).toContain("/assignments");
-    expect(linksFor("faculty")).toContain("/agents");
-    expect(linksFor("faculty")).not.toContain("/audit-logs");
+    expect(linksFor("faculty")).not.toContain("/faculty-workspace");
   });
 
-  it("retains the full console for administrators", () => {
+  it("has no faculty roster page in any console", () => {
+    for (const role of ["admin", "super-admin", "faculty", "student"] as const) {
+      expect(linksFor(role)).not.toContain("/faculty");
+    }
+  });
+
+  it("keeps campus operations and administration out of every console", () => {
     expect(homeForRole("admin")).toBe("/dashboard");
-    expect(linksFor("admin")).toContain("/settings");
-    expect(linksFor("super-admin")).toContain("/audit-logs");
+    for (const role of ["admin", "super-admin", "faculty"] as const) {
+      for (const href of ["/classrooms", "/laboratories", "/equipment", "/maintenance", "/audit-logs", "/settings", "/notifications", "/profile"]) {
+        expect(linksFor(role)).not.toContain(href);
+      }
+    }
   });
 });

@@ -3,6 +3,8 @@ import { Bot, BrainCircuit, CircleCheck, ShieldCheck } from "lucide-react";
 import { approveAgentDecisionAction } from "@/ai/application/agent-actions";
 import { loadAgentWorkspace } from "@/ai/observability/agent-run.repository";
 import { AgentConsole } from "@/ai/presentation/agent-console";
+import { FacultyAssistant } from "@/ai/presentation/faculty-assistant";
+import { resolveAiProviderConfiguration } from "@/ai/providers/provider-configuration";
 import { OperationsHeader, OperationsMetrics, StatusPill, WorkspaceBanner } from "@/components/operations/operations-ui";
 import { AdministrationTable } from "@/features/administration/presentation/administration-table";
 import { resolveWorkspaceAccess } from "@/server/workspace/workspace-access";
@@ -15,11 +17,14 @@ export default async function AgentsPage() {
   if (access.mode === "live") try { runs = await loadAgentWorkspace(); } catch { runs = null; }
   const mode = access.mode === "live" && !runs ? "error" : access.mode;
   const rows = runs ?? [];
+  const provider = resolveAiProviderConfiguration();
+  const modelLabel = provider ? `${provider.provider} · ${provider.model}` : null;
   const waiting = rows.filter((run) => run.agent_decisions.some((decision) => decision.requires_human_review && !decision.approved_at)).length;
 
   return <section>
-    <OperationsHeader description="Execute evidence-backed specialist agents, inspect persisted decisions, and keep privileged outcomes under human control." eyebrow="Decision intelligence" title="Agent operations." />
+    <OperationsHeader description="Ask the faculty assistant about attendance, students, grading, and coding readiness, run evidence-backed specialist agents, and keep privileged outcomes under human control." eyebrow="Decision intelligence" title="Agent operations." />
     <WorkspaceBanner mode={mode} />
+    <div className="mt-8"><FacultyAssistant canUse={access.canManage && access.mode === "live"} modelLabel={modelLabel} /></div>
     <div className="mt-8"><AgentConsole canExecute={access.canManage && mode === "live"} /></div>
     <OperationsMetrics metrics={[
       { detail: "Most recent persisted executions", icon: Bot, label: "Agent runs", value: rows.length },

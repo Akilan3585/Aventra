@@ -8,6 +8,13 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: process.cwd(),
   },
+  experimental: {
+    serverActions: {
+      // Study material uploads are capped at 10 MB in the domain rules; leave
+      // headroom for multipart overhead. Vercel and Lambda request limits still apply.
+      bodySizeLimit: "12mb",
+    },
+  },
 };
 
 export default nextConfig;

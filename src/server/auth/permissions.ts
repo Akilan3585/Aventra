@@ -2,7 +2,6 @@ export const roles = [
   "super-admin",
   "admin",
   "faculty",
-  "maintenance-staff",
   "student",
 ] as const;
 
@@ -18,9 +17,8 @@ export const permissions = [
   "assignments:read",
   "assignments:manage",
   "submissions:manage",
-  "enrollments:manage",
-  "schedules:manage",
-  "maintenance:manage",
+  "materials:read",
+  "materials:manage",
   "reports:read",
   "agents:execute",
   "agents:review",
@@ -29,13 +27,12 @@ export const permissions = [
 
 export type Permission = (typeof permissions)[number];
 
-export type WorkspaceAudience = "faculty" | "organization" | "student";
+export type WorkspaceAudience = "organization" | "student";
 
 export const clerkOrganizationRoleByCampusRole: Readonly<Record<Role, string>> = {
   "super-admin": "org:admin",
   admin: "org:admin",
   faculty: "org:faculty",
-  "maintenance-staff": "org:maintenance",
   student: "org:student",
 };
 
@@ -57,9 +54,8 @@ export const rolePermissions: Readonly<Record<Role, readonly Permission[]>> = {
     "assignments:read",
     "assignments:manage",
     "submissions:manage",
-    "enrollments:manage",
-    "schedules:manage",
-    "maintenance:manage",
+    "materials:read",
+    "materials:manage",
     "reports:read",
     "agents:execute",
     "agents:review",
@@ -73,12 +69,13 @@ export const rolePermissions: Readonly<Record<Role, readonly Permission[]>> = {
     "assignments:read",
     "assignments:manage",
     "submissions:manage",
+    "materials:read",
+    "materials:manage",
     "reports:read",
     "agents:execute",
     "agents:review",
   ],
-  "maintenance-staff": ["workspace:access", "maintenance:manage", "reports:read"],
-  student: ["workspace:access", "assignments:read", "submissions:manage"],
+  student: ["workspace:access", "assignments:read", "submissions:manage", "materials:read"],
 };
 
 export function hasPermission(role: Role, permission: Permission) {
@@ -91,7 +88,6 @@ export function isCampusRole(value: unknown): value is Role {
 
 export function workspaceAudienceForRole(role: Role): WorkspaceAudience {
   if (role === "student") return "student";
-  if (role === "faculty") return "faculty";
   return "organization";
 }
 

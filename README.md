@@ -1,6 +1,6 @@
 # Aventra AI
 
-Aventra AI is a production-oriented smart campus management platform for students, faculty, maintenance teams, and campus administrators. It brings academic workflows, attendance, scheduling, facilities, analytics, and governed AI decision support into one role-aware application.
+Aventra AI is a production-oriented smart campus management platform for students, faculty, and campus administrators. It brings academic workflows, attendance, scheduling, analytics, and governed AI decision support into one role-aware application.
 
 The application is built as a modular Next.js monolith with Clerk authentication, Supabase PostgreSQL, server-enforced permissions, audited mutations, and multi-agent workflows powered by the Vercel AI SDK.
 
@@ -10,27 +10,27 @@ Aventra AI replaces fragmented college ERP experiences with focused workspaces f
 
 | Portal | Primary users | Capabilities |
 | --- | --- | --- |
-| Student | Enrolled students | Personal dashboard, attendance visibility, assignments, submissions, notifications, and profile |
-| Faculty | Teaching staff | Assigned students and courses, attendance recording, assignments, grading, schedules, reports, and AI assistance |
-| Campus | Administrators and operations teams | Institution-wide academics, enrollment, facilities, maintenance, analytics, agents, audit logs, and settings |
+| Student | Enrolled students | Personal dashboard, attendance visibility, assignments, submissions, study materials, notifications, and profile |
+| Faculty | Faculty and administrators | Institution-wide academics, enrollment, attendance, schedules, analytics, agents, and reports |
+
+The Faculty portal is shared by faculty and campus staff; the `faculty` role still limits teaching staff to assigned students, courses, attendance, assignments, grading, reports, and AI assistance.
 
 Users choose a portal before authentication. After sign-in, the requested portal is checked against the authoritative campus membership stored in Supabase. A user cannot gain access by changing a URL or selecting a different portal.
 
 ## Implemented capabilities
 
-- Three distinct portal entry points for students, faculty, and campus teams
+- Two distinct portal entry points for students and faculty
 - Clerk sign-in, sign-up, session handling, and identity synchronization
 - Supabase-backed campus membership lifecycle: `pending`, `active`, `suspended`, and `expired`
 - Role- and permission-based workspace navigation
 - Student, faculty, department, course, offering, and enrollment administration
-- Attendance recording and monitoring
+- Course study materials organised into per-class folders, with uploaded documents (PDF, Office, images, zip up to 10 MB) stored in the private `course-materials` Supabase Storage bucket and served through short-lived signed URLs
+- Session-based attendance marking for the whole student directory (date, period, optional department/year filter) with bulk actions, remarks, edit-with-audit, duplicate protection, low-attendance email alerts, and a normalized Google Sheets mirror
 - Assignment creation, student submission, grading, and feedback
 - Timetable creation with room, faculty, overlap, and capacity checks
-- Classroom, laboratory, and equipment readiness monitoring
-- Maintenance ticket creation, assignment, prioritization, SLA tracking, and resolution
 - Academic performance and semester-result views
-- Notifications, reports, profile, settings, analytics, and audit logs
-- Governed coordinator, student-success, classroom, and maintenance agents
+- Student notifications and profile, reports, and analytics
+- Governed coordinator, student-success, and classroom agents
 - OpenAI and Google Gemini provider support with deterministic fallback
 - Human approval for consequential AI recommendations
 - Responsive light-theme interface for desktop and mobile
@@ -78,10 +78,9 @@ Authentication answers who the user is. Campus membership and permissions answer
 | Role | Access summary |
 | --- | --- |
 | `super-admin` | Full platform access |
-| `admin` | Campus administration, academics, operations, agents, reports, and audit access |
-| `faculty` | Assigned academic scope, attendance, assignments, grading, reports, and agents |
-| `maintenance-staff` | Maintenance operations and operational reports |
-| `student` | Personal assignments, submissions, and student workspace |
+| `admin` | Campus administration, academics, schedules, agents, and reports |
+| `faculty` | Assigned academic scope, attendance, assignments, study materials, grading, reports, and agents |
+| `student` | Personal assignments, submissions, study materials, and student workspace |
 
 Authorization is enforced on the server. Hiding a navigation item or button is only a presentation decision and is never treated as a security boundary.
 
@@ -94,7 +93,7 @@ Clerk and Supabase form a two-layer authorization boundary:
 
 ### Portal flow
 
-1. The user selects Student, Faculty, or Campus on the public site.
+1. The user selects Student or Faculty on the public site.
 2. A new student creates an identity at `/student/sign-up` and completes the academic profile at `/student/onboarding`.
 3. Clerk authenticates the user through the matching sign-in route and supplies the verified primary email.
 4. The application resolves the Clerk identity to an internal Supabase profile.
@@ -112,10 +111,9 @@ Faculty may approve pending student onboarding requests only within their assign
 
 | Agent | Responsibility | Evidence tools |
 | --- | --- | --- |
-| Coordinator | Combines campus signals and identifies cross-domain exceptions | Attendance, performance, classrooms, schedules, maintenance |
+| Coordinator | Combines campus signals and identifies cross-domain exceptions | Attendance, performance, schedules |
 | Student Success | Identifies verified attendance or academic support signals | Attendance and performance |
-| Classroom | Evaluates room readiness, capacity, and timetable constraints | Classroom and schedule signals |
-| Maintenance | Detects critical or overdue operational work | Maintenance signals |
+| Classroom | Evaluates room capacity and timetable constraints | Schedule signals |
 
 Agent execution follows these controls:
 
@@ -131,7 +129,7 @@ Agent execution follows these controls:
 
 - Duplicate enrollment is rejected.
 - Offering capacity is checked before enrollment.
-- Attendance can only be recorded by an authorized user.
+- Attendance can only be recorded by an authorized user, faculty only for students in their assigned classes, one record per student, date, and period; stale saves are refused when another user changed the session.
 - Schedule conflicts include room overlap, faculty overlap, and room capacity.
 - Faculty operations are restricted to assigned offerings.
 - Students can access and submit only through their personal workspace.
@@ -197,8 +195,7 @@ docs/
 | `/student/sign-up` | Student identity registration |
 | `/student/onboarding` | Verified student profile submission and approval status |
 | `/student-approvals` | Faculty and campus-team review of pending student onboarding |
-| `/faculty/sign-in` | Faculty portal authentication |
-| `/campus/sign-in` | Campus-team authentication |
+| `/faculty/sign-in` | Faculty portal authentication for faculty and campus staff |
 | `/app` | Post-authentication portal and membership verification |
 | `/access-pending` | Unlinked or pending membership state |
 | `/access-denied` | Invalid role, status, or portal access state |
@@ -207,11 +204,10 @@ docs/
 
 | Route group | Includes |
 | --- | --- |
-| Personal workspaces | `/student-workspace`, `/faculty-workspace`, `/dashboard` |
-| Academics | `/students`, `/faculty`, `/departments`, `/courses`, `/enrollments`, `/assignments`, `/attendance`, `/performance`, `/schedules` |
-| Facilities | `/classrooms`, `/laboratories`, `/equipment`, `/maintenance` |
-| Intelligence | `/analytics`, `/agents`, `/reports`, `/notifications`, `/audit-logs` |
-| Account and administration | `/profile`, `/settings` |
+| Personal workspaces | `/student-workspace`, `/dashboard` |
+| Academics | `/students`, `/student-approvals`, `/courses`, `/assignments`, `/attendance`, `/performance` |
+| Intelligence | `/analytics`, `/agents`, `/reports` |
+| Student account | `/notifications`, `/profile` (students only) |
 
 ### API routes
 
@@ -219,6 +215,7 @@ docs/
 | --- | --- |
 | `/api/health` | Service health response |
 | `/api/reports/[report]` | Authorized report generation |
+| `/api/cron/attendance-sheet-sync` | Scheduled full mirror of attendance into Google Sheets (bearer `CRON_SECRET`) |
 | `/api/webhooks/clerk` | Clerk identity synchronization |
 
 ## Local development
@@ -266,6 +263,12 @@ NEXT_PUBLIC_SUPABASE_URL="https://your-project-ref.supabase.co"
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="sb_publishable_REPLACE_ME"
 SUPABASE_SECRET_KEY="sb_secret_REPLACE_ME"
 
+# Google Sheets attendance mirror (optional)
+GOOGLE_SERVICE_ACCOUNT_EMAIL="attendance-sync@your-project.iam.gserviceaccount.com"
+GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nREPLACE_ME\n-----END PRIVATE KEY-----\n"
+GOOGLE_SHEETS_ATTENDANCE_SPREADSHEET_ID="REPLACE_ME"
+CRON_SECRET="REPLACE_ME"
+
 # AI
 AI_PROVIDER="openai"
 OPENAI_API_KEY="sk_REPLACE_ME"
@@ -276,14 +279,11 @@ GEMINI_MODEL="your-model-name"
 
 Only the selected AI provider needs to be configured. If the selected provider is unavailable, Aventra tries the other fully configured provider and otherwise uses deterministic fallback decisions.
 
+The Google Sheets mirror is optional. To enable it: create a Google Cloud service account with the Google Sheets API enabled, create a JSON key and copy `client_email` and `private_key` (keep the literal `\n` line breaks on one line), create a spreadsheet and share it with the service-account email as an editor, and put the spreadsheet ID from its URL in `GOOGLE_SHEETS_ATTENDANCE_SPREADSHEET_ID`. The `Attendance`, `Students`, and `Attendance_Audit` tabs and their header rows are created automatically on the first sync. `CRON_SECRET` protects the nightly full sync; Vercel Cron sends it automatically, other schedulers must send `Authorization: Bearer <secret>`.
+
 ### 3. Apply database migrations
 
-Apply every SQL file in `supabase/migrations` in filename order:
-
-1. `202607240001_initial_campus_schema.sql`
-2. `202607270001_link_clerk_identities.sql`
-3. `202608070001_add_foreign_key_indexes.sql`
-4. `202608100001_add_campus_membership_lifecycle.sql`
+Apply every SQL file in `supabase/migrations` in filename order, starting with `202607240001_initial_campus_schema.sql`. The attendance page requires `20260925120000_add_attendance_od_status_and_sheet_syncs.sql`, `20260926120000_add_attendance_sessions.sql` (session/period, remarks, edit tracking), and `20260928120000_attendance_by_student.sql` (records keyed on the student instead of a class enrollment).
 
 The migration files are the schema authority. After a schema change, regenerate `src/types/database.ts` from the connected Supabase project.
 
@@ -303,7 +303,7 @@ For Clerk Organizations:
 
 1. Create one Clerk Organization for the campus and copy its ID to `CLERK_CAMPUS_ORGANIZATION_ID`.
 2. Keep Clerk's built-in `org:admin` role for campus owners and administrators.
-3. Create the custom roles `org:faculty`, `org:student`, and `org:maintenance`.
+3. Create the custom roles `org:faculty` and `org:student`.
 4. Create custom permissions matching the backend permission keys with the `org:` prefix, such as `org:students:read`, `org:students:approve`, `org:attendance:record`, and `org:campus:manage`, then assign them according to the role matrix above.
 5. Set `NEXT_PUBLIC_CLERK_ORGANIZATIONS_ENABLED=true` to show the campus switcher.
 6. Set `CLERK_SYNC_ORGANIZATION_MEMBERSHIPS=true` after those roles exist.
@@ -377,6 +377,8 @@ When the Vercel project is connected to the GitHub repository, pushes to the con
 
 ## Documentation
 
+- [`docs/engineering/definition-of-done.md`](docs/engineering/definition-of-done.md): the checklist every change must meet, including lint and architecture rules
+- [`docs/engineering/glossary.md`](docs/engineering/glossary.md): key project terms
 - [`docs/architecture/overview.md`](docs/architecture/overview.md)
 - [`docs/adr/0001-modular-monolith.md`](docs/adr/0001-modular-monolith.md)
 - [`docs/adr/0002-supabase-direct-access.md`](docs/adr/0002-supabase-direct-access.md)

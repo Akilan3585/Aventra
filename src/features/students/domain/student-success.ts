@@ -1,3 +1,8 @@
+import {
+  calculateAttendanceRate,
+  isAttendanceStatus,
+} from "../../attendance/domain/attendance-rules";
+
 export type RiskLevel = "high" | "medium" | "low" | "insufficient-data";
 
 export type StudentSuccessSignals = {
@@ -9,7 +14,6 @@ export type StudentSuccessSignals = {
   riskScore: number | null;
 };
 
-type AttendanceStatus = "present" | "absent" | "late" | "excused";
 
 type StudentSignalInput = {
   attendanceStatuses: string[];
@@ -26,15 +30,7 @@ export function calculateStudentSuccessSignals({
   internalMarks,
   latestCgpa,
 }: StudentSignalInput): StudentSuccessSignals {
-  const validAttendance = attendanceStatuses.filter((status): status is AttendanceStatus =>
-    ["present", "absent", "late", "excused"].includes(status),
-  );
-  const attended = validAttendance.filter((status) =>
-    ["present", "late", "excused"].includes(status),
-  ).length;
-  const attendanceRate = validAttendance.length
-    ? round((attended / validAttendance.length) * 100)
-    : null;
+  const attendanceRate = calculateAttendanceRate(attendanceStatuses.filter(isAttendanceStatus));
 
   const earnedMarks = internalMarks.reduce(
     (sum, mark) => sum + Number(mark.marksObtained),

@@ -28,11 +28,10 @@ import type { Role } from "@/server/auth/permissions";
 type AppShellProps = { children: ReactNode; role: Role | null };
 
 const workspaceNames: Record<Role, string> = {
-  admin: "Campus administration",
+  admin: "Faculty administration",
   faculty: "Faculty workspace",
-  "maintenance-staff": "Facilities workspace",
   student: "Student workspace",
-  "super-admin": "Campus administration",
+  "super-admin": "Faculty administration",
 };
 
 export function AppShell({ children, role }: AppShellProps) {
@@ -156,13 +155,13 @@ export function AppShell({ children, role }: AppShellProps) {
 
       {isMenuOpen ? <button aria-label="Close navigation overlay" className="fixed inset-0 z-30 bg-slate-950/25 lg:hidden" onClick={() => setIsMenuOpen(false)} type="button" /> : null}
 
-      <div className="lg:pl-72">
+      <div className="min-w-0 overflow-x-clip lg:pl-72">
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-6 lg:px-8">
           <button aria-label="Open navigation" className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden" onClick={() => setIsMenuOpen(true)} type="button"><Menu className="size-5" /></button>
           <div className="hidden min-w-0 items-center gap-2 text-sm md:flex">
             <Link className="text-slate-400 hover:text-slate-700" href={homeHref}>{role ? workspaceNames[role] : "Workspace"}</Link>
             <span className="text-slate-300">/</span>
-            <span className="truncate font-medium text-slate-700">{activeItem?.label ?? "Campus operations"}</span>
+            <span className="truncate font-medium text-slate-700">{activeItem?.label ?? "Faculty operations"}</span>
           </div>
           <button
             className="mx-auto hidden w-full max-w-md items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm text-slate-400 transition hover:border-slate-300 hover:bg-white md:flex"
@@ -173,7 +172,7 @@ export function AppShell({ children, role }: AppShellProps) {
           </button>
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
             <button aria-label="Search workspace" className="rounded-xl p-2.5 text-slate-500 hover:bg-slate-100 md:hidden" onClick={() => setIsSearchOpen(true)} type="button"><Search className="size-5" /></button>
-            <Link aria-label="Notifications" className="relative rounded-xl p-2.5 text-slate-500 hover:bg-slate-100" href="/notifications"><Bell className="size-5" /><span className="absolute right-2 top-2 size-1.5 rounded-full bg-blue-600" /></Link>
+            {role === "student" ? <Link aria-label="Notifications" className="relative rounded-xl p-2.5 text-slate-500 hover:bg-slate-100" href="/notifications"><Bell className="size-5" /><span className="absolute right-2 top-2 size-1.5 rounded-full bg-blue-600" /></Link> : null}
             {clerkConfigured && organizationsEnabled ? <div className="hidden lg:block"><OrganizationSwitcher /></div> : null}
             {clerkConfigured ? <UserButton showName userProfileMode="modal" /> : <Link className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100" href="/sign-in"><LogIn className="size-4" /><span className="hidden sm:inline">Connect account</span></Link>}
           </div>
@@ -184,7 +183,7 @@ export function AppShell({ children, role }: AppShellProps) {
       {isSearchOpen ? (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/30 p-4 pt-[12vh] backdrop-blur-sm" role="presentation">
           <button aria-label="Close search" className="absolute inset-0" onClick={() => setIsSearchOpen(false)} type="button" />
-          <div aria-label="Search campus workspace" aria-modal="true" className="relative z-10 w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl" role="dialog">
+          <div aria-label="Search faculty workspace" aria-modal="true" className="relative z-10 w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl" role="dialog">
             <div className="flex items-center gap-3 border-b border-slate-100 px-4">
               <Search className="size-5 text-slate-400" />
               <input

@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Building2, ChevronDown, ClipboardCheck, GraduationCap, ShieldCheck } from "lucide-react";
+import { Building2, ChevronDown, GraduationCap, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
 import { ClerkAuthForm } from "@/components/auth/clerk-auth-form";
@@ -26,20 +26,12 @@ export const portalDefinitions: Record<WorkspaceRouteKey, PortalDefinition> = {
     roleSummary: "Learning and campus life",
   },
   faculty: {
-    accent: "from-blue-600 to-cyan-600",
-    description: "Manage assigned classes, record attendance, publish work, and support learners.",
-    eyebrow: "Faculty portal",
-    icon: ClipboardCheck,
-    label: "Faculty",
-    roleSummary: "Teaching and assessment",
-  },
-  campus: {
     accent: "from-emerald-600 to-teal-600",
-    description: "Coordinate academics, facilities, people, reports, agents, and governed approvals.",
-    eyebrow: "Campus administration",
+    description: "Manage classes, attendance, assignments, reports, agents, and governed approvals.",
+    eyebrow: "Faculty portal",
     icon: Building2,
-    label: "Campus team",
-    roleSummary: "Operations and governance",
+    label: "Faculty",
+    roleSummary: "Teaching and faculty operations",
   },
 };
 
@@ -67,7 +59,7 @@ export function PortalSignIn({ portal }: { portal: WorkspaceRouteKey }) {
     <section className="grid place-items-center py-6 lg:bg-white">
       <div className="w-full max-w-lg">
         <Link aria-label="Return to Aventra AI home" className="mb-6 inline-flex rounded-xl border border-slate-200 bg-white p-2 shadow-sm transition hover:border-slate-300 hover:shadow" href="/"><BrandLogo className="w-32" eager /></Link>
-        <div aria-label="Choose portal" className="grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+        <div aria-label="Choose portal" className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
           {(Object.keys(portalDefinitions) as WorkspaceRouteKey[]).map((key) => {
             const item = portalDefinitions[key];
             const Icon = item.icon;
@@ -84,7 +76,7 @@ export function PortalSignIn({ portal }: { portal: WorkspaceRouteKey }) {
           <p className="mt-2 text-sm leading-6 text-slate-500">Sign in with your verified college account for {selected.roleSummary.toLowerCase()}. Aventra will reject access if your directory role does not match this portal.</p>
         </div>
         {isClerkConfigured() ? <ClerkAuthForm fallbackRedirectUrl={`/app?portal=${portal}`} mode="sign-in" path={route.signIn} signInUrl={route.signIn} signUpUrl={signUpUrl} /> : <div className="rounded-2xl border border-amber-200 bg-white p-6 text-sm leading-6 text-slate-600 shadow-sm">Clerk is not configured. Add the Clerk keys to <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">.env.local</code> and restart the app.</div>}
-        <p className="mt-6 text-center text-sm text-slate-500">{portal === "student" ? "New student?" : "Need access?"} <Link className="font-semibold text-primary hover:text-blue-700" href={signUpUrl}>{portal === "student" ? "Start student onboarding" : "Request a campus account"}</Link></p>
+        <p className="mt-6 text-center text-sm text-slate-500">{portal === "student" ? "New student?" : "Need access?"} <Link className="font-semibold text-primary hover:text-blue-700" href={signUpUrl}>{portal === "student" ? "Start student onboarding" : "Request a faculty account"}</Link></p>
       </div>
     </section>
   </main>;

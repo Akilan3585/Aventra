@@ -1,4 +1,4 @@
 # Classroom agent
 
-Evaluates capacity, timetable constraints, equipment needs, and maintenance
-readiness before proposing or executing room allocations.
+Evaluates room capacity and timetable constraints before proposing room
+allocations. Every proposal waits for human approval.

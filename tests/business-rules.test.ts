@@ -5,11 +5,7 @@ import {
   canSubmitAssignment,
   scoreIsWithinMaximum,
 } from "../src/features/academics/domain/academic-rules";
-import {
-  canTransitionMaintenanceTicket,
-  isFutureCampusDate,
-  maintenanceTransitionNeedsVerification,
-} from "../src/features/operations/domain/operations-rules";
+import { isFutureCampusDate } from "../src/features/operations/domain/operations-rules";
 
 describe("academic workflow rules", () => {
   const now = new Date("2026-08-10T10:00:00.000Z");
@@ -34,19 +30,6 @@ describe("academic workflow rules", () => {
 });
 
 describe("operations workflow rules", () => {
-  it("enforces the maintenance lifecycle", () => {
-    expect(canTransitionMaintenanceTicket("open", "in_progress")).toBe(true);
-    expect(canTransitionMaintenanceTicket("open", "closed")).toBe(false);
-    expect(canTransitionMaintenanceTicket("resolved", "closed")).toBe(true);
-    expect(canTransitionMaintenanceTicket("closed", "open")).toBe(false);
-  });
-
-  it("requires explicit restoration verification for terminal states", () => {
-    expect(maintenanceTransitionNeedsVerification("resolved")).toBe(true);
-    expect(maintenanceTransitionNeedsVerification("closed")).toBe(true);
-    expect(maintenanceTransitionNeedsVerification("in_progress")).toBe(false);
-  });
-
   it("rejects future attendance dates", () => {
     const now = new Date(2026, 7, 10, 18, 30);
     expect(isFutureCampusDate("2026-08-10", now)).toBe(false);

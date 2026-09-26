@@ -6,6 +6,7 @@ import {
   ArrowUpRight,
   BarChart3,
   BellRing,
+  BookOpen,
   Bot,
   Building2,
   CalendarCheck2,
@@ -13,7 +14,6 @@ import {
   ChevronRight,
   CircleCheck,
   Clock3,
-  ClipboardCheck,
   GraduationCap,
   LockKeyhole,
   Menu,
@@ -21,7 +21,6 @@ import {
   ShieldCheck,
   Sparkles,
   UsersRound,
-  Wrench,
   X,
   Zap,
 } from "lucide-react";
@@ -39,7 +38,7 @@ const operationBars = [42, 58, 48, 72, 61, 84, 67, 93, 76, 88, 71, 96];
 const agentEvents = [
   { label: "Attendance risk detected", meta: "Student success agent · 1m", color: "bg-violet-500" },
   { label: "Room B-204 reassigned", meta: "Scheduling agent · 4m", color: "bg-blue-500" },
-  { label: "HVAC ticket prioritised", meta: "Facilities agent · 8m", color: "bg-amber-500" },
+  { label: "Quiz results published", meta: "Classroom agent · 8m", color: "bg-amber-500" },
 ];
 
 const capabilities = [
@@ -59,10 +58,10 @@ const capabilities = [
     className: "",
   },
   {
-    icon: Wrench,
-    eyebrow: "Campus readiness",
-    title: "Fix the right thing first.",
-    copy: "Prioritise maintenance by urgency, impact, and building activity.",
+    icon: BookOpen,
+    eyebrow: "Study materials",
+    title: "Every class, one folder.",
+    copy: "Share notes, documents, and quizzes with each class from a governed library.",
     className: "",
   },
   {
@@ -86,29 +85,19 @@ const workspaceJourneys = [
     badge: "Student workspace",
   },
   {
-    accent: "from-blue-500 to-cyan-500",
-    eyebrow: "For faculty",
-    title: "Teach with the full picture.",
-    copy: "Move from class schedules to attendance and student context in one focused teaching workspace.",
-    icon: ClipboardCheck,
-    href: workspaceRoutes.faculty.signIn,
-    stat: "Classes, learners, action",
-    badge: "Faculty workspace",
-  },
-  {
     accent: "from-emerald-500 to-teal-500",
-    eyebrow: "For campus teams",
+    eyebrow: "For faculty",
     title: "Turn operations into momentum.",
-    copy: "Coordinate facilities, schedules, student success, and approvals with one shared operational view.",
+    copy: "Coordinate classes, schedules, student success, and approvals with one shared operational view.",
     icon: Building2,
-    href: workspaceRoutes.campus.signIn,
+    href: workspaceRoutes.faculty.signIn,
     stat: "Connected decisions",
-    badge: "Campus command",
+    badge: "Faculty workspace",
   },
 ];
 
 const outcomeMetrics = [
-  { label: "Focused workspaces", value: "03", detail: "Students, faculty, and teams" },
+  { label: "Focused workspaces", value: "02", detail: "Students and faculty" },
   { label: "Connected service areas", value: "06", detail: "Academic and operational flows" },
   { label: "Human approval", value: "100%", detail: "For sensitive AI actions" },
 ];
@@ -152,7 +141,7 @@ function ProductPreview() {
                 <span className="rounded-full border border-white/10 px-2 py-1 text-[9px] font-semibold text-slate-400">6 AGENTS ACTIVE</span>
               </div>
               <p className="mt-8 text-[10px] font-medium uppercase tracking-[0.18em] text-blue-300">Morning brief</p>
-              <p className="mt-2 text-sm font-medium leading-6 text-white sm:text-[15px]">Three actions can improve today&apos;s campus readiness.</p>
+              <p className="mt-2 text-sm font-medium leading-6 text-white sm:text-[15px]">Three actions can improve today&apos;s academic outcomes.</p>
               <button className="mt-5 flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[.07] px-3 py-2.5 text-left text-[11px] text-slate-300 transition hover:bg-white/[.12]" type="button">
                 Review recommendations <ChevronRight className="size-3.5" />
               </button>
@@ -167,7 +156,7 @@ function ProductPreview() {
               <div className="rounded-2xl border border-slate-200/80 bg-white p-4">
                 <div className="flex items-center justify-between text-[10px] font-medium text-slate-500"><span>Review queue</span><BellRing className="size-3.5 text-blue-500" /></div>
                 <p className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-slate-950">04</p>
-                <p className="mt-1 text-[9px] leading-4 text-slate-400">2 scheduling · 2 facilities</p>
+                <p className="mt-1 text-[9px] leading-4 text-slate-400">2 scheduling · 2 attendance</p>
               </div>
             </div>
 
@@ -268,7 +257,7 @@ export function LandingPage() {
           <div className="flex flex-wrap items-center justify-center gap-x-7 gap-y-4 text-xs font-semibold text-slate-500 sm:gap-x-10">
             <span className="flex items-center gap-2"><UsersRound className="size-4 text-blue-500" />Student services</span>
             <span className="flex items-center gap-2"><GraduationCap className="size-4 text-violet-500" />Faculty</span>
-            <span className="flex items-center gap-2"><Building2 className="size-4 text-emerald-500" />Facilities</span>
+            <span className="flex items-center gap-2"><BookOpen className="size-4 text-emerald-500" />Academics</span>
             <span className="flex items-center gap-2"><BarChart3 className="size-4 text-amber-500" />Leadership</span>
           </div>
         </div>
@@ -276,11 +265,11 @@ export function LandingPage() {
 
       <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:py-28" id="workspaces">
         <Reveal className="mx-auto max-w-3xl text-center">
-          <p className="text-sm font-semibold text-indigo-600">One product. Three clear experiences.</p>
+          <p className="text-sm font-semibold text-indigo-600">One product. Two clear experiences.</p>
           <h2 className="mt-3 text-balance text-3xl font-semibold tracking-[-0.045em] text-slate-950 sm:text-5xl">Every person gets a workspace that feels made for them.</h2>
           <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-slate-600">The same trusted campus data, presented in the right level of detail for the work each person needs to do.</p>
         </Reveal>
-        <div className="mt-12 grid gap-5 lg:grid-cols-3">
+        <div className="mt-12 grid gap-5 lg:grid-cols-2">
           {workspaceJourneys.map(({ accent, badge, copy, eyebrow, href, icon: Icon, stat, title }, index) => (
             <Reveal delay={index * 0.08} key={eyebrow}>
               <Link className="block h-full" href={href}>
@@ -410,7 +399,7 @@ export function LandingPage() {
       </section>
 
       <footer className="border-t border-slate-200/70 bg-white py-8">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-5 text-xs text-slate-500 sm:flex-row sm:px-8"><Brand /><p>Campus operations, intelligently coordinated.</p><p>© 2026 Aventra AI</p></div>
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-5 text-xs text-slate-500 sm:flex-row sm:px-8"><Brand /><p>Academic operations, intelligently coordinated.</p><p>© 2026 Aventra AI</p></div>
       </footer>
     </main>
   );

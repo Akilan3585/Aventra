@@ -161,7 +161,6 @@ export async function submitStudentOnboardingAction(
     }
 
     revalidatePath("/access-pending");
-    revalidatePath("/settings");
     revalidatePath("/students");
     return {
       message: existingStudent

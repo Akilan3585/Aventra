@@ -3,8 +3,8 @@ import "server-only";
 type AttendanceEmail = {
   alertId: string;
   attendanceRate: number;
-  courseCode: string;
-  courseTitle: string;
+  /** What the percentage refers to, e.g. "Overall attendance". */
+  context: string;
   recipientEmail: string;
   studentName: string;
   threshold: number;
@@ -33,7 +33,7 @@ export async function sendAttendanceAlertEmail(input: AttendanceEmail): Promise<
 
   const workspaceUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "https://aventra-ai.vercel.app"}/student-workspace`;
   const studentName = escapeHtml(input.studentName);
-  const course = escapeHtml(`${input.courseCode} · ${input.courseTitle}`);
+  const context = escapeHtml(input.context);
   const response = await fetch("https://api.resend.com/emails", {
     body: JSON.stringify({
       from,
@@ -43,13 +43,13 @@ export async function sendAttendanceAlertEmail(input: AttendanceEmail): Promise<
             <p style="margin:0 0 24px;color:#2563eb;font-size:14px;font-weight:700">Aventra AI · Attendance support</p>
             <h1 style="margin:0 0 16px;font-size:26px;line-height:1.25">Your attendance needs attention</h1>
             <p style="margin:0 0 16px;line-height:1.65">Hello ${studentName},</p>
-            <p style="margin:0 0 16px;line-height:1.65">Your attendance for <strong>${course}</strong> is currently <strong>${input.attendanceRate}%</strong>, which is below the ${input.threshold}% requirement.</p>
+            <p style="margin:0 0 16px;line-height:1.65"><strong>${context}</strong> is currently <strong>${input.attendanceRate}%</strong>, which is below the ${input.threshold}% requirement.</p>
             <p style="margin:0 0 24px;line-height:1.65">Please review your attendance and contact your faculty member or student-support team if you need help.</p>
             <a href="${escapeHtml(workspaceUrl)}" style="display:inline-block;border-radius:10px;background:#0f172a;color:#ffffff;padding:12px 18px;text-decoration:none;font-weight:700">Open student workspace</a>
           </div>
         </div>`,
       reply_to: process.env.ATTENDANCE_ALERT_REPLY_TO || undefined,
-      subject: `Attendance alert: ${input.courseCode} is below ${input.threshold}%`,
+      subject: `Attendance alert: ${input.context} is below ${input.threshold}%`,
       to: [input.recipientEmail],
     }),
     headers: {

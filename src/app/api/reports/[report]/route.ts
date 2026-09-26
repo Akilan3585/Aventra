@@ -26,17 +26,9 @@ export async function GET(_: Request, { params }: { params: Promise<{ report: st
     if (error) return NextResponse.json({ error: "Report query failed." }, { status: 500 });
     rows = data.map((item) => ({ student_number: item.student_number, name: item.profiles?.display_name ?? "", email: item.profiles?.email ?? "", department_code: item.departments.code, department: item.departments.name, admission_year: item.admission_year, semester: item.semester }));
   } else if (report === "attendance") {
-    const { data, error } = await client.from("attendance_records").select("session_date, status, enrollments (students (student_number), course_offerings (section, courses (code, title)))").order("session_date", { ascending: false });
+    const { data, error } = await client.from("attendance_records").select("session_date, session, status, remarks, recorded_at, updated_at, students (student_number, semester, departments (code), profiles (display_name))").order("session_date", { ascending: false }).order("session");
     if (error) return NextResponse.json({ error: "Report query failed." }, { status: 500 });
-    rows = data.map((item) => ({ date: item.session_date, student_number: item.enrollments.students.student_number, course_code: item.enrollments.course_offerings.courses.code, course: item.enrollments.course_offerings.courses.title, section: item.enrollments.course_offerings.section, status: item.status }));
-  } else if (report === "facilities") {
-    const { data, error } = await client.from("rooms").select("code, name, kind, building, floor, capacity, is_active").order("code");
-    if (error) return NextResponse.json({ error: "Report query failed." }, { status: 500 });
-    rows = data;
-  } else if (report === "maintenance") {
-    const { data, error } = await client.from("maintenance_tickets").select("title, priority, status, opened_at, resolved_at, rooms (code, name), equipment (asset_tag)").order("opened_at", { ascending: false });
-    if (error) return NextResponse.json({ error: "Report query failed." }, { status: 500 });
-    rows = data.map((item) => ({ title: item.title, priority: item.priority, status: item.status, room_code: item.rooms.code, room: item.rooms.name, asset_tag: item.equipment?.asset_tag ?? "", opened_at: item.opened_at, resolved_at: item.resolved_at ?? "" }));
+    rows = data.map((item) => ({ date: item.session_date, session: item.session, student_number: item.students.student_number, student: item.students.profiles?.display_name ?? "", department: item.students.departments.code, semester: item.students.semester, status: item.status, remarks: item.remarks ?? "", recorded_at: item.recorded_at, updated_at: item.updated_at }));
   } else return NextResponse.json({ error: "Unknown report." }, { status: 404 });
   return new NextResponse(toCsv(rows), { headers: { "Content-Disposition": `attachment; filename="aventra-${report}-${new Date().toISOString().slice(0, 10)}.csv"`, "Content-Type": "text/csv; charset=utf-8", "X-Content-Type-Options": "nosniff" } });
 }

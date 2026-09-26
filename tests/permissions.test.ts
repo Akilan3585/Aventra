@@ -10,7 +10,6 @@ describe("campus role permissions", () => {
   it("keeps administrator settings away from non-admin roles", () => {
     expect(hasPermission("admin", "campus:manage")).toBe(true);
     expect(hasPermission("faculty", "campus:manage")).toBe(false);
-    expect(hasPermission("maintenance-staff", "campus:manage")).toBe(false);
     expect(hasPermission("student", "campus:manage")).toBe(false);
   });
 
@@ -18,6 +17,8 @@ describe("campus role permissions", () => {
     expect(hasPermission("student", "workspace:access")).toBe(true);
     expect(hasPermission("student", "assignments:read")).toBe(true);
     expect(hasPermission("student", "submissions:manage")).toBe(true);
+    expect(hasPermission("student", "materials:read")).toBe(true);
+    expect(hasPermission("student", "materials:manage")).toBe(false);
     expect(hasPermission("student", "assignments:manage")).toBe(false);
     expect(hasPermission("student", "reports:read")).toBe(false);
     expect(hasPermission("student", "students:manage")).toBe(false);

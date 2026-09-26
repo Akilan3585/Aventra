@@ -24,9 +24,11 @@ export async function loadAssignmentsWorkspace(role: Role, profileId: string | n
 
   if (offeringIds && !offeringIds.length) return { assignments: [], offeringOptions: [] };
   let assignmentQuery = client.from("assignments").select(`
-    id, offering_id, title, maximum_marks, due_at, created_at,
+    id, offering_id, title, kind, status, maximum_marks, due_at, time_limit_minutes, created_at,
     course_offerings (section, academic_year, term, courses (code, title))
   `);
+  // Drafts are private to faculty until published.
+  if (role === "student") assignmentQuery = assignmentQuery.neq("status", "draft");
   let offeringsQuery = client.from("course_offerings").select("id, section, academic_year, term, courses (code, title)");
   if (offeringIds) {
     assignmentQuery = assignmentQuery.in("offering_id", offeringIds);
@@ -42,12 +44,12 @@ export async function loadAssignmentsWorkspace(role: Role, profileId: string | n
   const assignmentIds = assignmentResult.data.map(({ id }) => id);
   let submissions: Array<{
     assignment_id: string; enrollment_id: string; feedback: string | null; graded_at: string | null;
-    id: string; score: number | null; submitted_at: string | null;
+    id: string; score: number | null; started_at: string | null; submitted_at: string | null;
     enrollments: { students: { student_number: string; profiles: { display_name: string } | null } };
   }> = [];
   if (assignmentIds.length) {
     let submissionQuery = client.from("assignment_submissions").select(`
-      id, assignment_id, enrollment_id, submitted_at, score, feedback, graded_at,
+      id, assignment_id, enrollment_id, started_at, submitted_at, score, feedback, graded_at,
       enrollments (students (student_number, profiles (display_name)))
     `).in("assignment_id", assignmentIds);
     if (ownEnrollmentIds) submissionQuery = submissionQuery.in("enrollment_id", ownEnrollmentIds);
@@ -69,6 +71,7 @@ export async function loadAssignmentsWorkspace(role: Role, profileId: string | n
           graded_at: null,
           id: `pending-${assignment.id}`,
           score: null,
+          started_at: null,
           submitted_at: null,
           enrollments: { students: { student_number: "", profiles: null } },
         }],
@@ -77,32 +80,6 @@ export async function loadAssignmentsWorkspace(role: Role, profileId: string | n
     offeringOptions: offeringResult.data.map((offering) => ({
       id: offering.id,
       label: `${offering.courses.code} — ${offering.courses.title} · ${offering.section}`,
-    })),
-  };
-}
-
-export async function loadEnrollmentsWorkspace() {
-  const client = createSupabaseAdminClient();
-  const [enrollments, students, offerings] = await Promise.all([
-    client.from("enrollments").select(`
-      id, enrolled_at,
-      students (id, student_number, profiles (display_name)),
-      course_offerings (id, section, academic_year, term, capacity, courses (code, title))
-    `).order("enrolled_at", { ascending: false }).limit(500),
-    client.from("students").select("id, student_number, profiles (display_name)").order("student_number"),
-    client.from("course_offerings").select("id, section, academic_year, term, capacity, courses (code, title)").order("academic_year", { ascending: false }),
-  ]);
-  if (enrollments.error) throw new DatabaseQueryError("load enrollments", enrollments.error.message);
-  if (students.error) throw new DatabaseQueryError("load enrollment students", students.error.message);
-  if (offerings.error) throw new DatabaseQueryError("load enrollment offerings", offerings.error.message);
-  const counts = new Map<string, number>();
-  enrollments.data.forEach(({ course_offerings }) => counts.set(course_offerings.id, (counts.get(course_offerings.id) ?? 0) + 1));
-  return {
-    enrollments: enrollments.data,
-    studentOptions: students.data.map((student) => ({ id: student.id, label: `${student.student_number} — ${student.profiles?.display_name ?? "Profile not linked"}` })),
-    offeringOptions: offerings.data.map((offering) => ({
-      id: offering.id,
-      label: `${offering.courses.code} · ${offering.section} (${counts.get(offering.id) ?? 0}/${offering.capacity})`,
     })),
   };
 }

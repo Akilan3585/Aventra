@@ -4,6 +4,9 @@ import { redirect } from "next/navigation";
 
 import { ProgressBar, StatusPill } from "@/components/operations/operations-ui";
 import { Card } from "@/design-system/primitives/card";
+import { attendanceStatusLabels } from "@/features/attendance/domain/attendance-rules";
+import { listPlatformSnapshotsForStudent, studentIdForProfile, type StudentPlatformSnapshot } from "@/features/performance/infrastructure/platform-performance.repository";
+import { MyCodingProfiles } from "@/features/performance/presentation/my-coding-profiles";
 import { loadStudentRoleWorkspace } from "@/features/workspaces/infrastructure/role-workspace.repository";
 import { getCampusAccess } from "@/server/auth/campus-access";
 
@@ -28,6 +31,14 @@ export default async function StudentWorkspacePage() {
     </div>
   </section>;
 
+  let codingProfiles: StudentPlatformSnapshot[] = [];
+  try {
+    const studentId = access.profileId ? await studentIdForProfile(access.profileId) : null;
+    if (studentId) codingProfiles = await listPlatformSnapshotsForStudent(studentId);
+  } catch {
+    codingProfiles = [];
+  }
+
   const attendance = data.attendanceRate ?? 0;
   return <section className="space-y-6">
     <div className="overflow-hidden rounded-[28px] bg-slate-950 p-6 text-white sm:p-8">
@@ -41,8 +52,10 @@ export default async function StudentWorkspacePage() {
     <div className="grid gap-6 xl:grid-cols-[1.15fr_.85fr]">
       <Card className="overflow-hidden"><div className="border-b border-slate-100 p-5 sm:px-6"><h2 className="font-semibold text-slate-950">Today&apos;s classes</h2><p className="mt-1 text-sm text-slate-500">Only the sessions relevant to you.</p></div><div className="divide-y divide-slate-100">{data.todayClasses.length ? data.todayClasses.map((session) => <div className="flex items-center gap-4 p-5 sm:px-6" key={session.id}><span className="grid size-11 shrink-0 place-items-center rounded-xl bg-violet-50 text-violet-700"><Clock3 className="size-5" /></span><div className="min-w-0 flex-1"><p className="font-semibold text-slate-900">{session.course}</p><p className="mt-1 text-sm text-slate-500">{time(session.startsAt)}–{time(session.endsAt)} · {session.room}</p></div><StatusPill tone="good">scheduled</StatusPill></div>) : <div className="p-8 text-center"><CalendarDays className="mx-auto size-7 text-slate-300" /><p className="mt-3 font-semibold text-slate-800">No classes today</p><p className="mt-1 text-sm text-slate-500">Use the time to review your courses or messages.</p></div>}</div></Card>
 
-      <Card className="p-5 sm:p-6"><div className="flex items-center justify-between"><div><h2 className="font-semibold text-slate-950">Attendance health</h2><p className="mt-1 text-sm text-slate-500">Simple, course-by-course visibility.</p></div><span className="text-2xl font-semibold text-slate-950">{data.attendanceRate === null ? "—" : `${data.attendanceRate}%`}</span></div><div className="mt-6"><ProgressBar tone={attendance >= 75 ? "emerald" : "amber"} value={attendance} /></div><div className="mt-6 space-y-4">{data.attendanceByCourse.map((course) => <div className="flex items-center justify-between gap-3" key={course.course}><p className="truncate text-sm font-medium text-slate-700">{course.course}</p><StatusPill tone={course.rate === null ? "neutral" : course.rate >= 75 ? "good" : "warning"}>{course.rate === null ? "not started" : `${course.rate}%`}</StatusPill></div>)}</div></Card>
+      <Card className="p-5 sm:p-6"><div className="flex items-center justify-between"><div><h2 className="font-semibold text-slate-950">Attendance health</h2><p className="mt-1 text-sm text-slate-500">Overall rate and your latest sessions.</p></div><span className="text-2xl font-semibold text-slate-950">{data.attendanceRate === null ? "—" : `${data.attendanceRate}%`}</span></div><div className="mt-6"><ProgressBar tone={attendance >= 75 ? "emerald" : "amber"} value={attendance} /></div><div className="mt-6 space-y-3">{data.recentAttendance.length ? data.recentAttendance.map((record) => <div className="flex items-center justify-between gap-3" key={record.id}><p className="truncate text-sm font-medium text-slate-700"><span className="font-mono">{record.date}</span> · {record.session}</p><StatusPill tone={record.status === "absent" ? "critical" : record.status === "late" ? "warning" : record.status === "present" || record.status === "od" ? "good" : "neutral"}>{record.status ? attendanceStatusLabels[record.status] : "unknown"}</StatusPill></div>) : <p className="text-sm text-slate-500">No attendance has been recorded yet.</p>}</div></Card>
     </div>
+
+    <MyCodingProfiles snapshots={codingProfiles} />
 
     <div className="grid gap-6 lg:grid-cols-2"><Card className="overflow-hidden"><div className="border-b border-slate-100 p-5 sm:px-6"><h2 className="font-semibold text-slate-950">My courses</h2><p className="mt-1 text-sm text-slate-500">The people and subjects connected to you.</p></div><div className="divide-y divide-slate-100">{data.courses.map((course) => <div className="flex items-center gap-4 p-5 sm:px-6" key={course.code}><span className="grid size-10 place-items-center rounded-xl bg-blue-50 text-sm font-bold text-blue-700">{course.code.slice(0, 2)}</span><div><p className="text-sm font-semibold text-slate-900">{course.title}</p><p className="mt-1 text-xs text-slate-500">{course.code} · {course.faculty}</p></div></div>)}</div></Card><Card className="overflow-hidden"><div className="flex items-center justify-between border-b border-slate-100 p-5 sm:px-6"><div><h2 className="font-semibold text-slate-950">College messages</h2><p className="mt-1 text-sm text-slate-500">Important updates without ERP noise.</p></div><Bell className="size-5 text-blue-600" /></div><div className="divide-y divide-slate-100">{data.messages.length ? data.messages.map((message) => <Link className="block p-5 transition hover:bg-slate-50 sm:px-6" href="/notifications" key={message.id}><p className="text-sm font-semibold text-slate-900">{message.subject}</p><p className="mt-1 text-xs text-slate-500">{new Date(message.createdAt).toLocaleDateString("en-IN")}</p></Link>) : <p className="p-8 text-center text-sm text-slate-500">You are all caught up.</p>}</div></Card></div>
   </section>;

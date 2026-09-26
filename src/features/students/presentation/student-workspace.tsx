@@ -10,6 +10,7 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
+  UserCheck,
   UsersRound,
   X,
 } from "lucide-react";
@@ -26,6 +27,8 @@ import type {
 } from "@/features/students/infrastructure/student.repository";
 import type { RiskLevel } from "@/features/students/domain/student-success";
 import { cn } from "@/lib/utils";
+import { enrollStudentInDepartmentClassesAction } from "@/features/students/application/student-enrollment-actions";
+import { formatCampusDate } from "@/lib/format-date";
 
 type WorkspaceMode = "configuration" | "error" | "forbidden" | "live";
 
@@ -68,9 +71,12 @@ function downloadRoster(students: StudentDirectoryItem[]) {
     student.academicAverage,
     student.latestCgpa,
     riskLabels[student.riskLevel],
+    student.membershipStatus,
+    student.approvedBy,
+    student.approvedAt ? student.approvedAt.slice(0, 10) : null,
   ]);
   const csv = [
-    ["Student ID", "Name", "Email", "Department", "Semester", "Enrollments", "Attendance", "Academic average", "CGPA", "Support status"],
+    ["Student ID", "Name", "Email", "Department", "Semester", "Enrollments", "Attendance", "Academic average", "CGPA", "Support status", "Membership", "Accepted by", "Accepted on"],
     ...rows,
   ].map((row) => row.map(escape).join(",")).join("\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
@@ -79,6 +85,28 @@ function downloadRoster(students: StudentDirectoryItem[]) {
   link.download = `aventra-student-roster-${new Date().toISOString().slice(0, 10)}.csv`;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+type OnboardingFilter = "all" | "accepted" | "pending";
+
+const acceptedOn = formatCampusDate;
+
+function OnboardingCell({ student }: { student: StudentDirectoryItem }) {
+  if (student.membershipStatus === "active") {
+    return (
+      <>
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200"><UserCheck className="size-3" /> Accepted</span>
+        <p className="mt-1.5 max-w-48 text-xs text-slate-500">{student.approvedBy ? <>by <span className="font-medium text-slate-700">{student.approvedBy}</span>{student.approvedAt ? ` · ${acceptedOn(student.approvedAt)}` : ""}</> : "Activated by the campus office"}</p>
+      </>
+    );
+  }
+  const label = student.membershipStatus === "pending" ? "Awaiting approval" : student.membershipStatus === "unlinked" ? "No account yet" : student.membershipStatus;
+  return (
+    <>
+      <span className={cn("inline-flex rounded-full px-2.5 py-1 text-xs font-semibold capitalize ring-1 ring-inset", student.membershipStatus === "pending" ? "bg-amber-50 text-amber-700 ring-amber-200" : "bg-slate-100 text-slate-600 ring-slate-200")}>{label}</span>
+      {student.membershipStatus === "pending" ? <p className="mt-1.5 max-w-48 text-xs text-slate-500">Accept on the Student approvals page.</p> : null}
+    </>
+  );
 }
 
 function RiskBadge({ level }: { level: RiskLevel }) {
@@ -157,17 +185,20 @@ function AddStudentDialog({
 export function StudentWorkspace({ canManage, departments, mode, students }: StudentWorkspaceProps) {
   const [query, setQuery] = useState("");
   const [riskFilter, setRiskFilter] = useState<"all" | RiskLevel>("all");
+  const [onboardingFilter, setOnboardingFilter] = useState<OnboardingFilter>("all");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const filteredStudents = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return students
       .filter((student) => riskFilter === "all" || student.riskLevel === riskFilter)
-      .filter((student) => !normalizedQuery || [student.displayName, student.studentNumber, student.email ?? "", student.departmentCode].some((value) => value.toLowerCase().includes(normalizedQuery)))
+      .filter((student) => onboardingFilter === "all" || (onboardingFilter === "accepted" ? student.membershipStatus === "active" : student.membershipStatus === "pending"))
+      .filter((student) => !normalizedQuery || [student.displayName, student.studentNumber, student.email ?? "", student.departmentCode, student.approvedBy ?? ""].some((value) => value.toLowerCase().includes(normalizedQuery)))
       .sort((left, right) => (right.riskScore ?? -1) - (left.riskScore ?? -1));
-  }, [query, riskFilter, students]);
+  }, [onboardingFilter, query, riskFilter, students]);
   const needsAttention = students.filter((student) => ["high", "medium"].includes(student.riskLevel)).length;
   const activeEnrollments = students.reduce((sum, student) => sum + student.enrollmentCount, 0);
-  const guidanceQueue = students.filter((student) => student.riskLevel === "high").length;
+  const acceptedStudents = students.filter((student) => student.membershipStatus === "active").length;
+  const pendingStudents = students.filter((student) => student.membershipStatus === "pending").length;
 
   return (
     <section aria-labelledby="students-heading">
@@ -190,7 +221,7 @@ export function StudentWorkspace({ canManage, departments, mode, students }: Stu
           { detail: "Verified roster records", icon: UsersRound, label: "Total students", value: students.length },
           { detail: "High and monitored cases", icon: AlertTriangle, label: "Needs attention", value: needsAttention },
           { detail: "Current course relationships", icon: BookOpen, label: "Active enrollments", value: activeEnrollments },
-          { detail: "High-priority human review", icon: Sparkles, label: "Guidance queue", value: guidanceQueue },
+          { detail: pendingStudents ? `${pendingStudents} still awaiting approval` : "Every roster record is approved", icon: UserCheck, label: "Accepted sign-ups", value: acceptedStudents },
         ].map(({ detail, icon: MetricIcon, label, value }) => <Card className="p-5" key={label}><div className="flex items-start justify-between gap-4"><div><p className="text-sm text-slate-500">{label}</p><p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{value}</p></div><span className="grid size-9 place-items-center rounded-xl bg-blue-50 text-primary"><MetricIcon className="size-4" /></span></div><p className="mt-4 text-xs leading-5 text-slate-500">{detail}</p></Card>)}
       </div>
 
@@ -200,10 +231,11 @@ export function StudentWorkspace({ canManage, departments, mode, students }: Stu
             <div><h2 className="text-base font-semibold text-slate-950">Priority roster</h2><p className="mt-1 text-sm text-slate-500">Sorted by calculated support risk, highest first.</p></div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <label className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 sm:w-72"><Search className="size-4 shrink-0 text-slate-400" /><span className="sr-only">Search student directory</span><input className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400" onChange={(event) => setQuery(event.target.value)} placeholder="Name, ID, email, department" type="search" value={query} /></label>
+              <select aria-label="Filter by onboarding status" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none" onChange={(event) => setOnboardingFilter(event.target.value as OnboardingFilter)} value={onboardingFilter}><option value="all">All students</option><option value="accepted">Accepted by faculty</option><option value="pending">Awaiting approval</option></select>
               <select aria-label="Filter by support status" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none" onChange={(event) => setRiskFilter(event.target.value as "all" | RiskLevel)} value={riskFilter}><option value="all">All statuses</option><option value="high">High priority</option><option value="medium">Monitor</option><option value="low">On track</option><option value="insufficient-data">Needs data</option></select>
             </div>
           </div>
-          {filteredStudents.length ? <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left"><thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-6 py-3">Student</th><th className="px-4 py-3">Program</th><th className="px-4 py-3">Attendance</th><th className="px-4 py-3">Academic</th><th className="px-4 py-3">CGPA</th><th className="px-4 py-3">Support status</th><th className="px-4 py-3"><span className="sr-only">Open</span></th></tr></thead><tbody className="divide-y divide-slate-100">{filteredStudents.map((student) => <tr className="transition hover:bg-blue-50/30" key={student.id}><td className="px-6 py-4"><p className="font-semibold text-slate-900">{student.displayName}</p><p className="mt-0.5 font-mono text-xs text-slate-500">{student.studentNumber}</p></td><td className="px-4 py-4"><p className="text-sm font-medium text-slate-700">{student.departmentCode} · Sem {student.semester}</p><p className="mt-0.5 text-xs text-slate-500">{student.enrollmentCount} enrollments</p></td><td className="px-4 py-4 text-sm font-semibold text-slate-700">{formatPercent(student.attendanceRate)}</td><td className="px-4 py-4 text-sm font-semibold text-slate-700">{formatPercent(student.academicAverage)}</td><td className="px-4 py-4 text-sm font-semibold text-slate-700">{student.latestCgpa?.toFixed(2) ?? "—"}</td><td className="px-4 py-4"><RiskBadge level={student.riskLevel} /><p className="mt-1.5 max-w-48 text-xs text-slate-500">{student.reasons[0]}</p></td><td className="px-4 py-4 text-slate-400"><ChevronRight className="size-4" /></td></tr>)}</tbody></table></div> : <div className="grid min-h-80 place-items-center px-6 py-12 text-center"><div className="max-w-sm"><span className="mx-auto grid size-12 place-items-center rounded-2xl bg-blue-50 text-primary"><GraduationCap className="size-6" /></span><h3 className="mt-5 text-base font-semibold text-slate-950">{students.length ? "No students match this view." : "No roster records yet."}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{students.length ? "Adjust the search or support-status filter." : mode === "live" ? "Add the first student to activate enrollment and success workflows." : "Complete the secure configuration above to load live records."}</p></div></div>}
+          {filteredStudents.length ? <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left"><thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-6 py-3">Student</th><th className="px-4 py-3">Program</th><th className="px-4 py-3">Attendance</th><th className="px-4 py-3">Academic</th><th className="px-4 py-3">CGPA</th><th className="px-4 py-3">Support status</th><th className="px-4 py-3">Onboarding</th><th className="px-4 py-3"><span className="sr-only">Open</span></th></tr></thead><tbody className="divide-y divide-slate-100">{filteredStudents.map((student) => <tr className="transition hover:bg-blue-50/30" key={student.id}><td className="px-6 py-4"><p className="font-semibold text-slate-900">{student.displayName}</p><p className="mt-0.5 font-mono text-xs text-slate-500">{student.studentNumber}</p>{student.email ? <p className="mt-0.5 max-w-56 truncate text-xs text-slate-400">{student.email}</p> : null}</td><td className="px-4 py-4"><p className="text-sm font-medium text-slate-700">{student.departmentCode} · Sem {student.semester}</p><p className="mt-0.5 text-xs text-slate-500">{student.enrollmentCount} enrollments</p>{canManage && student.membershipStatus === "active" && student.enrollmentCount === 0 ? <form action={enrollStudentInDepartmentClassesAction} className="mt-1.5"><input name="studentId" type="hidden" value={student.id} /><button className="text-xs font-semibold text-blue-700 hover:text-blue-800" type="submit">Enroll in department classes</button></form> : null}</td><td className="px-4 py-4 text-sm font-semibold text-slate-700">{formatPercent(student.attendanceRate)}</td><td className="px-4 py-4 text-sm font-semibold text-slate-700">{formatPercent(student.academicAverage)}</td><td className="px-4 py-4 text-sm font-semibold text-slate-700">{student.latestCgpa?.toFixed(2) ?? "—"}</td><td className="px-4 py-4"><RiskBadge level={student.riskLevel} /><p className="mt-1.5 max-w-48 text-xs text-slate-500">{student.reasons[0]}</p></td><td className="px-4 py-4"><OnboardingCell student={student} /></td><td className="px-4 py-4 text-slate-400"><ChevronRight className="size-4" /></td></tr>)}</tbody></table></div> : <div className="grid min-h-80 place-items-center px-6 py-12 text-center"><div className="max-w-sm"><span className="mx-auto grid size-12 place-items-center rounded-2xl bg-blue-50 text-primary"><GraduationCap className="size-6" /></span><h3 className="mt-5 text-base font-semibold text-slate-950">{students.length ? "No students match this view." : "No roster records yet."}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{students.length ? "Adjust the search or support-status filter." : mode === "live" ? "Add the first student to activate enrollment and success workflows." : "Complete the secure configuration above to load live records."}</p></div></div>}
         </Card>
 
         <div className="space-y-6">

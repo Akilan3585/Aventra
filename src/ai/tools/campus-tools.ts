@@ -4,12 +4,7 @@ import { tool } from "ai";
 import { z } from "zod";
 
 import { loadPerformanceWorkspace } from "@/features/administration/infrastructure/administration.repository";
-import {
-  loadAttendanceWorkspace,
-  loadClassroomWorkspace,
-  loadMaintenanceWorkspace,
-  loadScheduleWorkspace,
-} from "@/features/operations/infrastructure/campus-operations.repository";
+import { loadAttendanceWorkspace, loadScheduleWorkspace } from "@/features/operations/infrastructure/campus-operations.repository";
 
 type ToolObserver = (toolName: string) => void;
 
@@ -29,35 +24,6 @@ export function createCampusAgentTools(onToolCall: ToolObserver = () => undefine
           late: data.late,
           records: data.records.length,
           todayRecorded: data.todayRecorded,
-        };
-      },
-    }),
-    classroomSignals: tool({
-      description: "Read verified teaching-space capacity and readiness signals.",
-      inputSchema: noInput,
-      execute: async () => {
-        onToolCall("classroomSignals");
-        const data = await loadClassroomWorkspace();
-        return {
-          attentionRooms: data.attentionRooms,
-          averageReadiness: data.averageReadiness,
-          classrooms: data.classrooms.length,
-          laboratories: data.laboratories,
-          totalCapacity: data.totalCapacity,
-        };
-      },
-    }),
-    maintenanceSignals: tool({
-      description: "Read verified maintenance workload, criticality, and SLA signals.",
-      inputSchema: noInput,
-      execute: async () => {
-        onToolCall("maintenanceSignals");
-        const data = await loadMaintenanceWorkspace();
-        return {
-          critical: data.critical,
-          inProgress: data.inProgress,
-          overdue: data.overdue,
-          tickets: data.tickets.length,
         };
       },
     }),

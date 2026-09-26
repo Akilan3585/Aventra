@@ -23,3 +23,14 @@ export async function loadAgentWorkspace() {
   if (error) throw new DatabaseQueryError("load agent workspace", error.message);
   return data;
 }
+
+/** Audit trail for faculty-assistant use. Stores what ran, never the question text or student data. */
+export async function recordAssistantUse(entry: { actorProfileId: string | null; kind: "chat" | "report"; name: string; tools: string[] }) {
+  await createSupabaseAdminClient().from("audit_logs").insert({
+    action: entry.kind === "chat" ? "assistant.chat" : "assistant.report",
+    actor_profile_id: entry.actorProfileId,
+    entity_id: null,
+    entity_type: "faculty_assistant",
+    metadata: { name: entry.name, tools: entry.tools },
+  });
+}
