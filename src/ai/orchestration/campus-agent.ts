@@ -4,6 +4,7 @@ import { Output, stepCountIs, ToolLoopAgent } from "ai";
 import { z } from "zod";
 
 import type { AgentResult } from "@/ai/contracts/agent-result";
+import { cacheAgentDecision, getCachedAgentDecision } from "@/ai/infrastructure/agent-cache";
 import { resolveAiProviderConfiguration } from "@/ai/providers/provider-configuration";
 import { createCampusLanguageModel } from "@/ai/providers/provider";
 import { createCampusAgentTools } from "@/ai/tools/campus-tools";
@@ -58,14 +59,19 @@ export async function executeCampusAgent({ agentName, focus, userId }: { agentNa
 }
 
 async function buildDecision(agentName: CampusAgentName, focus: string): Promise<AgentResult<CampusDecision>> {
+  const cached = await getCachedAgentDecision<CampusDecision>(agentName, focus);
+  if (cached) return cached;
+
   const deterministic = await buildDeterministicDecision(agentName, focus);
   const configuration = resolveAiProviderConfiguration();
 
   if (!configuration) {
-    return {
+    const fallbackResult: AgentResult<CampusDecision> = {
       ...deterministic,
       execution: { mode: "deterministic-fallback", model: null, provider: null, tools: [] },
     };
+    await cacheAgentDecision(agentName, focus, fallbackResult, 60);
+    return fallbackResult;
   }
 
   const toolCalls: string[] = [];
@@ -109,7 +115,7 @@ async function buildDecision(agentName: CampusAgentName, focus: string): Promise
     const missingTools = activeTools.filter((toolName) => !toolCalls.includes(toolName));
     if (missingTools.length > 0) throw new Error(`AGENT_EVIDENCE_INCOMPLETE:${missingTools.join(",")}`);
 
-    return {
+    const result: AgentResult<CampusDecision> = {
       ...deterministic,
       confidence: Math.min(deterministic.confidence, response.output.confidence),
       decision: { ...deterministic.decision, summary: response.output.summary },
@@ -122,8 +128,10 @@ async function buildDecision(agentName: CampusAgentName, focus: string): Promise
       nextActions: response.output.nextActions,
       reasons: response.output.reasons,
     };
+    await cacheAgentDecision(agentName, focus, result);
+    return result;
   } catch {
-    return {
+    const fallbackResult: AgentResult<CampusDecision> = {
       ...deterministic,
       execution: {
         mode: "deterministic-fallback",
@@ -132,6 +140,8 @@ async function buildDecision(agentName: CampusAgentName, focus: string): Promise
         tools: [...new Set(toolCalls)],
       },
     };
+    await cacheAgentDecision(agentName, focus, fallbackResult, 60);
+    return fallbackResult;
   }
 }
 

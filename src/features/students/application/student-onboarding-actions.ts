@@ -162,6 +162,7 @@ export async function submitStudentOnboardingAction(
 
     revalidatePath("/access-pending");
     revalidatePath("/students");
+    revalidatePath("/student-approvals");
     return {
       message: existingStudent
         ? "Your student profile is already submitted and awaiting campus approval."

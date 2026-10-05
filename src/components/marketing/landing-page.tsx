@@ -233,8 +233,8 @@ export function LandingPage() {
               </span>
             </Reveal>
             <h1 className="mt-7 text-balance text-[3.35rem] font-semibold leading-[.98] tracking-[-0.065em] text-slate-950 sm:text-6xl lg:text-[4.65rem]">
-              <BlurWords text="Unified campus management," />
-              {" "}<span className="mt-1 block"><BlurWords className="animated-gradient-text" text="made human." /></span>
+              <BlurWords text="Student" />
+              {" "}<span className="mt-1 block"><BlurWords className="animated-gradient-text" text="management." /></span>
             </h1>
             <Reveal delay={0.24}>
               <p className="mt-7 max-w-xl text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">Aventra gives every student, educator, and campus team a focused place to get work done—while intelligent coordination keeps the whole campus moving forward.</p>

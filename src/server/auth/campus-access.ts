@@ -15,6 +15,7 @@ import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
 } from "@/server/supabase/admin-client";
+import type { Database } from "@/types/database";
 
 export const membershipStatuses = [
   "pending",
@@ -158,15 +159,117 @@ const resolveCampusIdentity = async (): Promise<CampusIdentity | null> => {
     };
   }
 
-  const { data: profile, error } = await createSupabaseAdminClient()
+  const client = createSupabaseAdminClient();
+  let { data: profile } = await client
     .from("profiles")
     .select(
-      "id, email, campus_role, membership_status, valid_from, valid_until",
+      "id, email, campus_role, membership_status, valid_from, valid_until, clerk_user_id",
     )
     .eq("clerk_user_id", userId)
     .maybeSingle();
 
-  if (error || !profile) {
+  if (!profile) {
+    // If not linked by clerk_user_id, look up by verified email
+    const { data: profileByEmail } = await client
+      .from("profiles")
+      .select(
+        "id, email, campus_role, membership_status, valid_from, valid_until, clerk_user_id",
+      )
+      .eq("email", email)
+      .maybeSingle();
+
+    if (profileByEmail) {
+      const now = new Date().toISOString();
+      const activateFacultyInvitation =
+        profileByEmail.campus_role === "faculty" &&
+        profileByEmail.membership_status === "pending";
+
+      const updatePayload: Database["public"]["Tables"]["profiles"]["Update"] = {
+        clerk_user_id: userId,
+        updated_at: now,
+      };
+
+      if (isBootstrapAdmin) {
+        updatePayload.approved_at = now;
+        updatePayload.campus_role = "super-admin";
+        updatePayload.membership_status = "active";
+        updatePayload.valid_from = now;
+      } else if (activateFacultyInvitation) {
+        updatePayload.approved_at = now;
+        updatePayload.membership_status = "active";
+        updatePayload.valid_from = now;
+      }
+
+      await client
+        .from("profiles")
+        .update(updatePayload)
+        .eq("id", profileByEmail.id);
+
+      profile = {
+        ...profileByEmail,
+        clerk_user_id: userId,
+        ...(isBootstrapAdmin
+          ? {
+              campus_role: "super-admin",
+              membership_status: "active",
+            }
+          : activateFacultyInvitation
+            ? {
+                membership_status: "active",
+              }
+            : {}),
+      };
+    } else if (isBootstrapAdmin) {
+      const displayName =
+        [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
+        user?.username ||
+        email.split("@")[0] ||
+        "Campus Administrator";
+      const now = new Date().toISOString();
+      const { data: createdAdmin } = await client
+        .from("profiles")
+        .insert({
+          approved_at: now,
+          campus_role: "super-admin",
+          clerk_user_id: userId,
+          display_name: displayName,
+          email,
+          id: userId,
+          membership_status: "active",
+          valid_from: now,
+        })
+        .select(
+          "id, email, campus_role, membership_status, valid_from, valid_until, clerk_user_id",
+        )
+        .maybeSingle();
+
+      profile = createdAdmin;
+    } else {
+      const displayName =
+        [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
+        user?.username ||
+        email.split("@")[0] ||
+        "Student";
+      const { data: createdStudent } = await client
+        .from("profiles")
+        .insert({
+          campus_role: "student",
+          clerk_user_id: userId,
+          display_name: displayName,
+          email,
+          id: userId,
+          membership_status: "pending",
+        })
+        .select(
+          "id, email, campus_role, membership_status, valid_from, valid_until, clerk_user_id",
+        )
+        .maybeSingle();
+
+      profile = createdStudent;
+    }
+  }
+
+  if (!profile) {
     if (!isBootstrapAdmin) {
       return { email, profileId: null, role: null, status: "unlinked", userId };
     }
@@ -194,6 +297,19 @@ const resolveCampusIdentity = async (): Promise<CampusIdentity | null> => {
   // first campus owner. Keep it authoritative even when Clerk re-links an
   // existing directory record after a new OAuth session is created.
   if (isBootstrapAdmin) {
+    if (profile.campus_role !== "super-admin" || profile.membership_status !== "active") {
+      const now = new Date().toISOString();
+      await client
+        .from("profiles")
+        .update({
+          approved_at: now,
+          campus_role: "super-admin",
+          membership_status: "active",
+          updated_at: now,
+          valid_from: now,
+        })
+        .eq("id", profile.id);
+    }
     return {
       email,
       profileId: profile.id,

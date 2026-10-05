@@ -1,16 +1,15 @@
+const tile = "rounded-[1.75rem] bg-slate-900/[0.035] p-1.5 ring-1 ring-slate-900/[0.05]";
+const core = "h-full rounded-[calc(1.75rem-0.375rem)] bg-white";
+
 export default function DashboardLoading() {
   return (
-    <div aria-label="Loading dashboard" className="animate-pulse space-y-8">
-      <div className="space-y-3">
-        <div className="h-4 w-28 rounded bg-muted" />
-        <div className="h-9 w-72 rounded bg-muted" />
-        <div className="h-4 max-w-xl rounded bg-muted" />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }, (_, index) => (
-          <div className="h-36 rounded-lg border bg-card" key={index} />
-        ))}
-      </div>
+    <div aria-label="Loading dashboard" aria-live="polite" className="grid animate-pulse gap-4 xl:grid-cols-12">
+      <div className={`h-[26rem] xl:col-span-8 ${tile}`}><div className="h-full rounded-[calc(1.75rem-0.375rem)] bg-slate-800" /></div>
+      <div className={`h-[26rem] xl:col-span-4 ${tile}`}><div className={`grid place-items-center ${core}`}><div className="size-44 rounded-full border-[12px] border-slate-100" /></div></div>
+      <div className={`h-64 xl:col-span-7 ${tile}`}><div className={core} /></div>
+      <div className={`h-64 xl:col-span-5 ${tile}`}><div className={core} /></div>
+      <div className={`h-52 xl:col-span-12 ${tile}`}><div className={core} /></div>
+      <span className="sr-only">Loading campus data</span>
     </div>
   );
 }

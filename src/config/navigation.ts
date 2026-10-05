@@ -22,7 +22,7 @@ export type NavigationGroup = { items: readonly NavigationItem[]; label: string 
 export const navigationGroups: readonly NavigationGroup[] = [
   {
     label: "Overview",
-    items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }],
+    items: [{ href: "/dashboard", label: "Student management", icon: LayoutDashboard }],
   },
   {
     label: "Academic ops",

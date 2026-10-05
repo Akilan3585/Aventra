@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Aventra AI | Unified campus management",
+    default: "Aventra AI | Student management",
     template: "%s | Aventra AI",
   },
   description: "One intelligent workspace for students, faculty, and campus teams to run a more connected college.",
